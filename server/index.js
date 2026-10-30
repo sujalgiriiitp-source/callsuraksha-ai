@@ -1,27 +1,33 @@
 /**
- * CallSuraksha AI — server layer (Phase 4, part 1).
+ * CallSuraksha AI — server layer (Phase 4, complete).
  *
- * Plain Node + Express. The Gnani API key is read ONLY from process.env
- * (local `.env` via dotenv, if present). It is never logged, never returned
- * in any response, and never sent to the browser.
+ * Plain Node + Express. The Gnani API key is resolved Vault-first: the
+ * server asks the runtime credential service (authd) for a surrogate for
+ * the registered `custom.gnani` connection (see vault-key.js) and sends
+ * that surrogate as the API header — the runtime egress swaps it for the
+ * real key. The real key is never in a file, never logged, never returned
+ * in any response, and never sent to the browser. Only when authd is
+ * unreachable (e.g. running the project on a MacBook, where there is no
+ * Vault) does the server fall back to a local `.env` key.
  *
  * Endpoints:
- *   GET  /api/health      -> { status: "ok", gnaniKeyConfigured: boolean }
+ *   GET  /api/health      -> { status: "ok", gnaniKeyConfigured: boolean, keySource: "vault" | "env" | "none" }
  *   POST /api/transcribe  -> multipart audio_file -> real Prisma STT
  *
  * Audio is processed in memory only (multer memoryStorage). Nothing is
  * written to disk and there is no database. Logs carry one line per
  * request (ok/fail + status) — never transcript text, never the key.
- *
- * No key is configured yet, so POST /api/transcribe currently returns
- * 503 GNANI_KEY_NOT_CONFIGURED. That is the honest missing-key path, not
- * a failure of the wiring. A real Gnani call is a separate blocked step
- * that needs the key set in a local `.env` (see .env.example).
  */
 
 import 'dotenv/config'
 import express from 'express'
 import multer from 'multer'
+import {
+  getVaultCredential,
+  invalidateVaultCredential,
+  isVaultAvailable,
+} from './vault-key.js'
+import { analyzeTranscript } from './risk-engine.js'
 
 const PORT = Number(process.env.PORT ?? 3001)
 const GNANI_STT_URL = 'https://api.vachana.ai/stt/v3'
@@ -43,9 +49,32 @@ const ACCEPTED_MIMES = new Set([
   'audio/x-m4a',
 ])
 
-function getGnaniKey() {
-  const key = process.env.GNANI_API_KEY
-  return key && key.trim() ? key.trim() : undefined
+/**
+ * Resolve the Gnani credential, Vault-first.
+ * Returns { headerName, value, source } or undefined when no credential
+ * is available anywhere. The value is a surrogate when source is "vault"
+ * (swapped for the real key by the runtime egress) or the real key when
+ * source is "env" (local fallback only). Callers must never log it.
+ */
+async function resolveGnaniCredential() {
+  try {
+    const vault = await getVaultCredential()
+    return { headerName: vault.headerName, value: vault.surrogate, source: 'vault' }
+  } catch {
+    // No Vault here (e.g. MacBook clone) — fall back to a local .env key.
+  }
+  const envKey = process.env.GNANI_API_KEY
+  if (envKey && envKey.trim()) {
+    return { headerName: 'X-API-Key-ID', value: envKey.trim(), source: 'env' }
+  }
+  return undefined
+}
+
+async function getKeySource() {
+  if (await isVaultAvailable()) return 'vault'
+  const envKey = process.env.GNANI_API_KEY
+  if (envKey && envKey.trim()) return 'env'
+  return 'none'
 }
 
 function getExtension(filename) {
@@ -77,8 +106,9 @@ const upload = multer({
   limits: { fileSize: MAX_BYTES, files: 1 },
 })
 
-app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', gnaniKeyConfigured: Boolean(getGnaniKey()) })
+app.get('/api/health', async (_req, res) => {
+  const keySource = await getKeySource()
+  res.json({ status: 'ok', gnaniKeyConfigured: keySource !== 'none', keySource })
 })
 
 app.post('/api/transcribe', upload.single('audio_file'), async (req, res) => {
@@ -158,9 +188,10 @@ app.post('/api/transcribe', upload.single('audio_file'), async (req, res) => {
   }
   const languageCode = codes.join(',')
 
-  // 5. Key present? This is the missing-key path tested in Phase 4 part 1.
-  const key = getGnaniKey()
-  if (!key) {
+  // 5. Credential present? Vault-first; env fallback; else the honest
+  //    missing-key path (503). The credential value is never logged.
+  let credential = await resolveGnaniCredential()
+  if (!credential) {
     console.log('[transcribe] fail status=503 GNANI_KEY_NOT_CONFIGURED')
     return res.status(503).json({
       error: 'GNANI_KEY_NOT_CONFIGURED',
@@ -169,22 +200,37 @@ app.post('/api/transcribe', upload.single('audio_file'), async (req, res) => {
   }
 
   // 6. Forward to real Prisma STT. Node 24 has global fetch/FormData/Blob.
+  //    On a 401 with a Vault surrogate, refetch once (rotation-safe).
+  let upstream
+  let retried = false
   try {
-    const form = new FormData()
-    form.append(
-      'audio_file',
-      new Blob([file.buffer], { type: file.mimetype || 'application/octet-stream' }),
-      file.originalname,
-    )
-    form.append('model', model)
-    form.append('language_code', languageCode)
-    form.append('format', 'transcribe')
+    const sendToGnani = async () => {
+      const form = new FormData()
+      form.append(
+        'audio_file',
+        new Blob([file.buffer], { type: file.mimetype || 'application/octet-stream' }),
+        file.originalname,
+      )
+      form.append('model', model)
+      form.append('language_code', languageCode)
+      form.append('format', 'transcribe')
+      return fetch(GNANI_STT_URL, {
+        method: 'POST',
+        headers: { [credential.headerName]: credential.value },
+        body: form,
+      })
+    }
 
-    const upstream = await fetch(GNANI_STT_URL, {
-      method: 'POST',
-      headers: { 'X-API-Key-ID': key },
-      body: form,
-    })
+    upstream = await sendToGnani()
+    if (upstream.status === 401 && credential.source === 'vault' && !retried) {
+      retried = true
+      invalidateVaultCredential()
+      const fresh = await resolveGnaniCredential()
+      if (fresh) {
+        credential = fresh
+        upstream = await sendToGnani()
+      }
+    }
 
     if (!upstream.ok) {
       const detail = await gnaniErrorDetail(upstream)
@@ -207,16 +253,19 @@ app.post('/api/transcribe', upload.single('audio_file'), async (req, res) => {
 
     const data = await upstream.json()
     // Return ONLY the real Prisma response fields — never invent
-    // timestamps, confidence, or any percentage.
+    // timestamps, confidence, or any percentage — plus the Phase 5
+    // risk analysis of the real transcript (rule-based, explainable).
+    const transcript = typeof data?.transcript === 'string' ? data.transcript : ''
     console.log(`[transcribe] ok status=200 model=${data?.model ?? 'unknown'}`)
     return res.json({
       success: true,
       request_id: data?.request_id ?? null,
-      transcript: typeof data?.transcript === 'string' ? data.transcript : '',
+      transcript,
       model: data?.model ?? model,
       detected_language_code: data?.detected_language_code ?? null,
       processing_time: data?.processing_time ?? null,
       end_to_end_latency: data?.end_to_end_latency ?? null,
+      analysis: analyzeTranscript(transcript),
     })
   } catch {
     console.log('[transcribe] fail status=502 network_error')
@@ -248,7 +297,8 @@ app.use((err, _req, res, _next) => {
   })
 })
 
-app.listen(PORT, () => {
+app.listen(PORT, async () => {
   console.log(`CallSuraksha server listening on http://localhost:${PORT}`)
-  console.log(`Gnani key configured: ${Boolean(getGnaniKey())}`)
+  const keySource = await getKeySource()
+  console.log(`Gnani key configured: ${keySource !== 'none'} (source: ${keySource})`)
 })

@@ -5,6 +5,7 @@ import { MobileNav } from './components/layout/MobileNav'
 import { Analyze } from './pages/Analyze'
 import { Home } from './pages/Home'
 import { Placeholder } from './pages/Placeholder'
+import { Results } from './pages/Results'
 
 export default function App() {
   return (
@@ -15,16 +16,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/analyze" element={<Analyze />} />
-            <Route
-              path="/results"
-              element={
-                <Placeholder
-                  title="Analysis Results"
-                  phase="Phase 6 me banega"
-                  text="Yahan transcript highlights, risk band aur safety guidance dikhega. Koi bhi result abhi pre-generated ya fake nahi hai — ye page tabhi bharega jab real analysis chalega."
-                />
-              }
-            />
+            <Route path="/results" element={<Results />} />
             <Route
               path="/guidance"
               element={
