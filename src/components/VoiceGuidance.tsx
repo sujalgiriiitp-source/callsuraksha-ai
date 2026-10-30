@@ -23,6 +23,17 @@ type GuidanceState =
 
 const SPEEDS = [1, 1.25, 0.75] as const
 
+// Session cache for generated guidance audio. The script is built from the
+// risk band + top categories only, so the same band+categories+voice always
+// produces the same script — re-fetching it on every /results visit would
+// burn a Gnani TTS call for identical audio. The cache is keyed by exactly
+// what determines the script, holds at most 4 bands x 2 voices, lives in
+// browser memory for the session only (refresh clears it), and the blob
+// URLs are revoked only when a cached entry is replaced — never on
+// unmount, because the same URL may be shown again.
+type CachedGuidance = { script: string; audioUrl: string; duration: number }
+const guidanceCache = new Map<string, CachedGuidance>()
+
 function formatTime(seconds: number) {
   if (!Number.isFinite(seconds) || seconds < 0) return '0:00'
   const m = Math.floor(seconds / 60)
@@ -49,8 +60,15 @@ export function VoiceGuidance({ analysis }: { analysis: RiskAnalysis }) {
     setState({ status: 'loading' })
     setIsPlaying(false)
     setCurrentTime(0)
+    const key = `${voiceKey}:${analysis.riskBand}:${(analysis.highlights ?? []).map((h) => h.category).join(',')}`
+    // Session cache first — identical script, no new TTS call.
+    const hit = guidanceCache.get(key)
+    if (hit) {
+      if (id !== requestId.current) return
+      setState({ status: 'ready', script: hit.script, audioUrl: hit.audioUrl, duration: hit.duration, voice: voiceKey })
+      return
+    }
     try {
-      const key = `${voiceKey}:${analysis.riskBand}:${(analysis.highlights ?? []).map((h) => h.category).join(',')}`
       let entry = inflight.current?.key === key ? inflight.current : null
       if (!entry) {
         const promise = fetch('/api/guidance', {
@@ -77,13 +95,21 @@ export function VoiceGuidance({ analysis }: { analysis: RiskAnalysis }) {
       const bytes = Uint8Array.from(atob(data.audioBase64), (c) => c.charCodeAt(0))
       const blob = new Blob([bytes.buffer as ArrayBuffer], { type: 'audio/wav' })
       const audioUrl = URL.createObjectURL(blob)
+      const duration = typeof data.durationSeconds === 'number' ? data.durationSeconds : 0
+      guidanceCache.set(key, { script: data.script, audioUrl, duration })
       setState((prev) => {
-        if (prev.status === 'ready') URL.revokeObjectURL(prev.audioUrl)
+        // The previous URL stays alive in the session cache (it may be
+        // shown again), so it is NOT revoked here.
+        if (prev.status === 'ready' && prev.audioUrl !== audioUrl) {
+          // Only revoke a URL that is not cached anywhere.
+          const stillCached = [...guidanceCache.values()].some((c) => c.audioUrl === prev.audioUrl)
+          if (!stillCached) URL.revokeObjectURL(prev.audioUrl)
+        }
         return {
           status: 'ready',
           script: data.script,
           audioUrl,
-          duration: typeof data.durationSeconds === 'number' ? data.durationSeconds : 0,
+          duration,
           voice: voiceKey,
         }
       })
@@ -104,16 +130,9 @@ export function VoiceGuidance({ analysis }: { analysis: RiskAnalysis }) {
     }
   }, [fetchGuidance, voice])
 
-  // Revoke the audio URL on unmount.
-  useEffect(
-    () => () => {
-      setState((prev) => {
-        if (prev.status === 'ready') URL.revokeObjectURL(prev.audioUrl)
-        return prev
-      })
-    },
-    [],
-  )
+  // No unmount revoke: a ready URL lives in the session cache and may be
+  // shown again when the user returns to /results. The cache is
+  // session-scoped — a refresh clears it and the browser frees the blobs.
 
   const speed = SPEEDS[speedIndex]
 

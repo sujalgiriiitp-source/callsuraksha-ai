@@ -32,7 +32,7 @@ import {
   setCachedAnalysis,
   type DemoSample,
 } from '../lib/samples'
-import { setLastAnalysis } from '../lib/analysis'
+import { getLastAnalysis, setLastAnalysis } from '../lib/analysis'
 
 function formatDuration(seconds: number): string {
   const m = Math.floor(seconds / 60)
@@ -80,17 +80,19 @@ export function Demo() {
     setErrorById((prev) => ({ ...prev, [sample.id]: '' }))
     const cached = forceFresh ? undefined : getCachedAnalysis(sample.id)
     if (cached) {
-      // Reuse the cached result — no new Gnani call.
+      // Reuse the cached result — no new Gnani call, and the ORIGINAL
+      // timestamp is kept so it never looks like a fresh request.
       const blob = await fetchPublicAudio(`/${sample.file}`)
       setLastAnalysis({
-        result: cached,
+        result: cached.result,
         fileName: `${sample.id}.wav`,
         fileSize: sample.bytes,
         format: 'WAV',
         durationSeconds: sample.durationSeconds,
         language: sample.language,
         audioUrl: URL.createObjectURL(blob),
-        analyzedAt: new Date().toISOString(),
+        analyzedAt: cached.analyzedAt,
+        cached: true,
       })
       navigate('/results')
       return
@@ -106,7 +108,8 @@ export function Demo() {
         sample.durationSeconds,
         sample.language,
       )
-      setCachedAnalysis(sample.id, result)
+      const stored = getLastAnalysis()
+      setCachedAnalysis(sample.id, result, stored?.analyzedAt ?? new Date().toISOString())
       setAnalyzedIds((prev) => new Set(prev).add(sample.id))
       navigate('/results')
     } catch (err: unknown) {

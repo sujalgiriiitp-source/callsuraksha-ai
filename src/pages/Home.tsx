@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowRight,
@@ -161,8 +161,27 @@ function Waveform({ className = '' }: { className?: string }) {
 }
 
 export function Home() {
-  const [previewNote, setPreviewNote] = useState(false)
-  const [playingSample, setPlayingSample] = useState<string | null>(null)
+  // Real system status from the backend — never a hardcoded claim.
+  const [health, setHealth] = useState<'loading' | 'connected' | 'key-missing' | 'offline'>(
+    'loading',
+  )
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/health')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (cancelled) return
+        if (!data) setHealth('offline')
+        else if (data.gnaniKeyConfigured) setHealth('connected')
+        else setHealth('key-missing')
+      })
+      .catch(() => {
+        if (!cancelled) setHealth('offline')
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   return (
     <div className="space-y-12 pb-8 sm:space-y-16">
@@ -205,16 +224,32 @@ export function Home() {
             <div className="glass-card mt-8 inline-flex flex-wrap items-center gap-3 px-4 py-3 text-sm">
               <ShieldCheck className="h-4 w-4 text-[#11CFA8]" aria-hidden />
               <span className="text-[#94A3B8]">System status:</span>
-              <span className="font-medium text-[#F8FAFC]">Server online · Gnani key not set</span>
+              <span className="font-medium text-[#F8FAFC]" role="status">
+                {health === 'loading' && 'Server status check ho raha hai…'}
+                {health === 'connected' && 'Server online · Gnani connected'}
+                {health === 'key-missing' && 'Server online · Gnani key not set'}
+                {health === 'offline' && 'Server offline — npm run server se backend start karo'}
+              </span>
             </div>
             <p className="mt-4 max-w-xl text-sm text-[#94A3B8]">
-              Recorded audio analysis — live call interception nahi. Gnani integration abhi
-              connected nahi hai; API key set hote hi real transcription shuru hogi.
+              Recorded audio analysis — live call interception nahi.{' '}
+              {health === 'connected'
+                ? 'Gnani Prisma transcription aur Timbre guidance abhi live hai.'
+                : health === 'key-missing'
+                  ? 'Gnani integration abhi connected nahi hai; API key set hote hi real transcription shuru hogi.'
+                  : health === 'offline'
+                    ? 'Backend abhi reachable nahi hai — analysis ke liye server start karo.'
+                    : ''}
             </p>
           </div>
 
-          {/* Hero visual — CSS/SVG composition, no fake phone number or photo */}
-          <div className="relative mx-auto w-full max-w-md lg:max-w-none" aria-hidden>
+          {/* Hero visual — CSS/SVG composition, no fake phone number or photo.
+              overflow-hidden contains the decorative glow: without it the
+              -inset-8 blur extends past the viewport on 320/375px screens
+              and creates horizontal scrolling. No aria-hidden here: this
+              card holds real navigation links (Analyze / Detect Risk /
+              Get Guidance) that must stay in the accessibility tree. */}
+          <div className="relative mx-auto w-full max-w-md overflow-hidden lg:max-w-none">
             <div className="pointer-events-none absolute -inset-8 rounded-full bg-[#F3345E]/15 blur-3xl" />
             <div className="glass-card relative overflow-hidden p-6">
               <div className="flex items-center justify-between">
@@ -308,22 +343,16 @@ export function Home() {
         <div className="mt-8 grid gap-4 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
           <GlowCard>
             <div className="flex flex-wrap items-center gap-3">
-              <button
-                type="button"
-                onClick={() => setPreviewNote((v) => !v)}
-                aria-label="Sample audio preview"
+              <Link
+                to="/demo"
+                aria-label="Demo Samples page par sample audio suno"
                 className="flex h-11 w-11 items-center justify-center rounded-full bg-[#F8FAFC] text-[#050D1C] transition-transform hover:scale-105"
               >
                 <Play className="h-5 w-5" aria-hidden />
-              </button>
+              </Link>
               <Waveform className="flex-1" />
               <span className="text-sm font-medium text-[#94A3B8]">Synthetic sample</span>
             </div>
-            {previewNote && (
-              <p className="mt-3 text-sm text-[#94A3B8]" role="status">
-                Sample audio Phase 8 me aayega — abhi sirf script dikhaya gaya hai.
-              </p>
-            )}
             <h3 className="font-display mt-6 font-semibold">Transcript (Hindi / Hinglish)</h3>
             <ul className="mt-3 space-y-2.5 text-sm leading-relaxed">
               {PREVIEW_TRANSCRIPT.map((line, i) => (
@@ -458,20 +487,12 @@ export function Home() {
               <h3 className="font-display mt-4 font-semibold">{sample.title}</h3>
               <p className="mt-1 flex-1 text-sm text-[#94A3B8]">{sample.kind}</p>
               <p className="mt-2 text-xs text-[#94A3B8]">Synthetic sample · audio ≤ 28 sec</p>
-              <button
-                type="button"
-                onClick={() =>
-                  setPlayingSample((cur) => (cur === sample.title ? null : sample.title))
-                }
+              <Link
+                to="/demo"
                 className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-white/10"
               >
                 <Play className="h-4 w-4" aria-hidden /> Play Sample
-              </button>
-              {playingSample === sample.title && (
-                <p className="mt-3 text-sm text-[#94A3B8]" role="status">
-                  Sample audio Phase 8 me aayega — abhi sirf script aur risk band dikhaya gaya hai.
-                </p>
-              )}
+              </Link>
             </GlowCard>
           ))}
         </div>

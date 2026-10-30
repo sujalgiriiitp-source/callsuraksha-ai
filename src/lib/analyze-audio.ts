@@ -6,7 +6,7 @@
  * inline copy (working code — not touched). The result is stored with the
  * same in-memory store the Results dashboard reads.
  */
-import { setLastAnalysis, type AnalysisResult } from './analysis'
+import { clearLastAnalysis, setLastAnalysis, type AnalysisResult } from './analysis'
 
 export type TranscribeError = {
   status: number | null
@@ -28,6 +28,8 @@ export function isTranscribeError(err: unknown): err is TranscribeError {
  * POST an audio Blob to the real backend (Prisma v3.0 + Phase 5 risk
  * engine), store the result, and return it. Throws TranscribeError on
  * any failure — the caller shows the message and a retry control.
+ * Clears any previous analysis first, so /results can never show a stale
+ * result while a new one is in flight.
  */
 export async function transcribeAudioFile(
   blob: Blob,
@@ -37,6 +39,7 @@ export async function transcribeAudioFile(
   durationSeconds: number | null,
   language: string,
 ): Promise<AnalysisResult> {
+  clearLastAnalysis()
   const form = new FormData()
   form.append('audio_file', blob, fileName)
   form.append('language_code', language)

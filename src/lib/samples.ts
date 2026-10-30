@@ -61,14 +61,19 @@ export async function loadCompareManifest(): Promise<CompareManifest> {
 }
 
 // --- In-memory analysis cache (no DB, no localStorage) ---------------------
-const analysisCache = new Map<string, AnalysisResult>()
+// The cache stores the result AND the time of the original API call, so a
+// reused result keeps its original timestamp — it never looks like a fresh
+// request. Repeat clicks reuse the cache; a fresh call happens only on
+// Re-analyze / Re-run.
+export type CachedAnalysis = { result: AnalysisResult; analyzedAt: string }
+const analysisCache = new Map<string, CachedAnalysis>()
 
-export function getCachedAnalysis(key: string): AnalysisResult | undefined {
+export function getCachedAnalysis(key: string): CachedAnalysis | undefined {
   return analysisCache.get(key)
 }
 
-export function setCachedAnalysis(key: string, result: AnalysisResult): void {
-  analysisCache.set(key, result)
+export function setCachedAnalysis(key: string, result: AnalysisResult, analyzedAt: string): void {
+  analysisCache.set(key, { result, analyzedAt })
 }
 
 export function clearCachedAnalysis(key: string): void {

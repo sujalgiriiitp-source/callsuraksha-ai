@@ -34,7 +34,7 @@ import {
   setCachedAnalysis,
   type CompareManifest,
 } from '../lib/samples'
-import { setLastAnalysis, type AnalysisResult } from '../lib/analysis'
+import { getLastAnalysis, setLastAnalysis, type AnalysisResult } from '../lib/analysis'
 import {
   characterErrorRate,
   diffWords,
@@ -69,6 +69,9 @@ export function Compare() {
   const [running, setRunning] = useState(false)
   const [cleanResult, setCleanResult] = useState<AnalysisResult | null>(null)
   const [noisyResult, setNoisyResult] = useState<AnalysisResult | null>(null)
+  // Per-side analysis metadata — kept so "View Full Analysis" can show
+  // the original timestamp and the cached flag honestly.
+  const [metaBySide, setMetaBySide] = useState<Record<Side, { analyzedAt: string; cached: boolean } | null>>({ clean: null, noisy: null })
   const [errorBySide, setErrorBySide] = useState<Partial<Record<Side, string>>>({})
   const [analyzed, setAnalyzed] = useState(false)
 
@@ -86,16 +89,19 @@ export function Compare() {
     }
   }, [])
 
-  async function analyzeSide(side: Side, file: string, language: string, durationSeconds: number, bytes: number, forceFresh: boolean): Promise<AnalysisResult | null> {
+  async function analyzeSide(side: Side, file: string, language: string, durationSeconds: number, bytes: number, forceFresh: boolean): Promise<{ result: AnalysisResult; analyzedAt: string; cached: boolean } | null> {
     const key = `compare-${side}`
     if (!forceFresh) {
       const cached = getCachedAnalysis(key)
-      if (cached) return cached
+      // Original timestamp kept — a cached result never looks fresh.
+      if (cached) return { result: cached.result, analyzedAt: cached.analyzedAt, cached: true }
     }
     const blob = await fetchPublicAudio(`/${file}`)
     const result = await transcribeAudioFile(blob, file.split('/').pop() ?? `${side}.wav`, bytes, 'WAV', durationSeconds, language)
-    setCachedAnalysis(key, result)
-    return result
+    const stored = getLastAnalysis()
+    const analyzedAt = stored?.analyzedAt ?? new Date().toISOString()
+    setCachedAnalysis(key, result, analyzedAt)
+    return { result, analyzedAt, cached: false }
   }
 
   async function runComparison(forceFresh: boolean) {
@@ -105,9 +111,11 @@ export function Compare() {
     try {
       // Sequential — two simultaneous Gnani calls risk a 429 (Phase 7 lesson).
       const clean = await analyzeSide('clean', manifest.clean.file, 'hi-IN', manifest.clean.durationSeconds, manifest.clean.bytes, forceFresh)
-      setCleanResult(clean)
+      setCleanResult(clean?.result ?? null)
+      setMetaBySide((prev) => ({ ...prev, clean: clean ? { analyzedAt: clean.analyzedAt, cached: clean.cached } : null }))
       const noisy = await analyzeSide('noisy', manifest.noisy.file, 'hi-IN', manifest.noisy.durationSeconds, manifest.noisy.bytes, forceFresh)
-      setNoisyResult(noisy)
+      setNoisyResult(noisy?.result ?? null)
+      setMetaBySide((prev) => ({ ...prev, noisy: noisy ? { analyzedAt: noisy.analyzedAt, cached: noisy.cached } : null }))
       setAnalyzed(true)
     } catch (err: unknown) {
       const message = isTranscribeError(err) ? err.message : 'Comparison fail hui — dobara try karo.'
@@ -122,6 +130,7 @@ export function Compare() {
     const result = side === 'clean' ? cleanResult : noisyResult
     if (!result) return
     const file = side === 'clean' ? manifest.clean : manifest.noisy
+    const meta = metaBySide[side]
     const blob = await fetchPublicAudio(`/${file.file}`)
     setLastAnalysis({
       result,
@@ -131,7 +140,8 @@ export function Compare() {
       durationSeconds: file.durationSeconds,
       language: 'hi-IN',
       audioUrl: URL.createObjectURL(blob),
-      analyzedAt: new Date().toISOString(),
+      analyzedAt: meta?.analyzedAt ?? new Date().toISOString(),
+      cached: meta?.cached,
     })
     navigate('/results')
   }
@@ -301,6 +311,7 @@ export function Compare() {
                   clearCachedAnalysis('compare-noisy')
                   setCleanResult(null)
                   setNoisyResult(null)
+                  setMetaBySide({ clean: null, noisy: null })
                   setAnalyzed(false)
                   void runComparison(true)
                 }}

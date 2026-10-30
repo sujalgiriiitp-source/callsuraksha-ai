@@ -47,6 +47,10 @@ export type StoredAnalysis = {
   language: string
   audioUrl: string
   analyzedAt: string
+  /** True when this result came from the in-memory cache, not a fresh
+   *  Gnani API call — the Results page says so, so the timestamp never
+   *  implies a fresh request. */
+  cached?: boolean
 }
 
 let last: StoredAnalysis | null = null

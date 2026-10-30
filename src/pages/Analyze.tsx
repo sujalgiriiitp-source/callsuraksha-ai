@@ -11,6 +11,7 @@ import {
   Info,
   Landmark,
   Lightbulb,
+  Loader2,
   Mic,
   Play,
   ShieldCheck,
@@ -21,7 +22,7 @@ import {
   X,
 } from 'lucide-react'
 import { GlowCard } from '../components/GlowCard'
-import { setLastAnalysis, type AnalysisResult } from '../lib/analysis'
+import { clearLastAnalysis, setLastAnalysis, type AnalysisResult } from '../lib/analysis'
 import { MVP_MAX_DURATION_SECONDS, MVP_MAX_FILE_MB } from '../lib/gnani'
 
 const MAX_BYTES = MVP_MAX_FILE_MB * 1024 * 1024
@@ -172,21 +173,13 @@ async function measureDuration(blob: Blob, url: string): Promise<number | null> 
   }
 }
 
-function SampleRows({
-  picked,
-  onPick,
-}: {
-  picked: string | null
-  onPick: (title: string) => void
-}) {
+function SampleRows() {
   return (
     <ul className="space-y-3">
       {SAMPLES.map((sample) => (
         <li
           key={sample.title}
-          className={`rounded-xl border px-4 py-3 ${
-            picked === sample.title ? 'border-[#FF6A2C]/60 bg-[#FF6A2C]/5' : 'border-white/10 bg-white/[0.03]'
-          }`}
+          className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3"
         >
           <div className="flex items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#F3345E]/15 text-[#F3345E]">
@@ -204,13 +197,12 @@ function SampleRows({
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
             <p className="text-xs text-[#94A3B8]">{sample.language} · Synthetic sample · ≤ 28 sec</p>
-            <button
-              type="button"
-              onClick={() => onPick(sample.title)}
-              className="bg-gradient-brand shrink-0 rounded-lg px-3 py-2 text-xs font-semibold text-white"
+            <Link
+              to="/demo"
+              className="bg-gradient-brand inline-flex shrink-0 items-center gap-1 rounded-lg px-3 py-2 text-xs font-semibold text-white"
             >
-              {picked === sample.title ? 'Selected' : 'Use This Sample'}
-            </button>
+              Use This Sample <ArrowRight className="h-3 w-3" aria-hidden />
+            </Link>
           </div>
         </li>
       ))}
@@ -238,7 +230,6 @@ export function Analyze() {
   const [focusRisk, setFocusRisk] = useState(true)
   const [focusSummary, setFocusSummary] = useState(false)
   const [focusGuidance, setFocusGuidance] = useState(true)
-  const [samplePicked, setSamplePicked] = useState<string | null>(null)
 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
@@ -330,6 +321,9 @@ export function Analyze() {
 
   async function handleAnalyze() {
     if (!selected || !readyToAnalyze || isAnalyzing) return
+    // Clear the previous result FIRST — /results must never show a stale
+    // analysis while a new one is in flight.
+    clearLastAnalysis()
     setIsAnalyzing(true)
     setTranscribeError(null)
     try {
@@ -743,17 +737,8 @@ export function Analyze() {
                 </Link>
               </div>
               <div className="mt-5">
-                <SampleRows
-                  picked={samplePicked}
-                  onPick={(title) => setSamplePicked(title)}
-                />
+                <SampleRows />
               </div>
-              {samplePicked && (
-                <p className="mt-4 text-sm text-[#94A3B8]" role="status">
-                  “{samplePicked}” chuna gaya — iska asli audio Demo Samples page par hai, wahan se
-                  analyze karo.
-                </p>
-              )}
             </GlowCard>
           )}
 
@@ -949,9 +934,16 @@ export function Analyze() {
               </p>
             )}
             {isAnalyzing && (
-              <p className="mt-4 text-sm text-[#94A3B8]" role="status" aria-live="polite">
-                Audio server ko bheja gaya — Gnani Prisma se asli transcript ka intezaar hai…
-              </p>
+              <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3" role="status" aria-live="polite">
+                <p className="flex items-center gap-2 text-sm font-medium">
+                  <Loader2 className="h-4 w-4 animate-spin text-[#FF6A2C]" aria-hidden />
+                  Analyzing… Gnani Prisma transcript bana raha hai, phir risk analysis chalega.
+                </p>
+                <p className="mt-1.5 text-xs leading-relaxed text-[#94A3B8]">
+                  Audio server ko bheja gaya hai — isme kuch seconds lag sakte hain. Page band mat
+                  karo; result aate hi Results page khul jayega.
+                </p>
+              </div>
             )}
             {transcribeError && (
               <div
@@ -1011,25 +1003,16 @@ export function Analyze() {
               <h2 className="font-display flex items-center gap-2 text-lg font-semibold">
                 <Headphones className="h-5 w-5 text-[#FF6A2C]" aria-hidden /> Sample Calls
               </h2>
-              <span className="text-xs font-semibold text-[#FF6A2C]">View All</span>
+              <Link to="/demo" className="text-xs font-semibold text-[#FF6A2C] hover:underline">
+                View All
+              </Link>
             </div>
             <p className="mt-2 text-sm text-[#94A3B8]">
               In synthetic call samples ko try karo — kaise analysis dikhega, samjho.
             </p>
             <div className="mt-5">
-              <SampleRows
-                picked={samplePicked}
-                onPick={(title) => {
-                  setSamplePicked(title)
-                  setTab('sample')
-                }}
-              />
+              <SampleRows />
             </div>
-            {samplePicked && (
-              <p className="mt-4 text-sm text-[#94A3B8]" role="status">
-                “{samplePicked}” chuna gaya — sample audio Phase 8 me aayega.
-              </p>
-            )}
           </GlowCard>
 
           <GlowCard>

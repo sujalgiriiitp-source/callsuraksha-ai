@@ -3,9 +3,12 @@ import { AppHeader } from './components/layout/AppHeader'
 import { Disclaimer } from './components/layout/Disclaimer'
 import { MobileNav } from './components/layout/MobileNav'
 import { Analyze } from './pages/Analyze'
+import { About } from './pages/About'
 import { Compare } from './pages/Compare'
 import { Demo } from './pages/Demo'
+import { Guidance } from './pages/Guidance'
 import { Home } from './pages/Home'
+import { HowItWorks } from './pages/HowItWorks'
 import { Placeholder } from './pages/Placeholder'
 import { Results } from './pages/Results'
 
@@ -19,38 +22,11 @@ export default function App() {
             <Route path="/" element={<Home />} />
             <Route path="/analyze" element={<Analyze />} />
             <Route path="/results" element={<Results />} />
-            <Route
-              path="/guidance"
-              element={
-                <Placeholder
-                  title="AI Voice Guidance"
-                  phase="Phase 7 — Results dashboard me live hai"
-                  text="Voice guidance ka alag page nahi hai — kisi call ko analyze karo, phir uske Results page par Gnani Timbre ki Hindi/Hinglish guidance suno."
-                />
-              }
-            />
+            <Route path="/guidance" element={<Guidance />} />
             <Route path="/compare" element={<Compare />} />
             <Route path="/demo" element={<Demo />} />
-            <Route
-              path="/how-it-works"
-              element={
-                <Placeholder
-                  title="How It Works"
-                  phase="Phase 2 ke baad detail page banega"
-                  text="Pipeline: Upload/Record, Prisma transcript, risk indicators, safety guidance, Timbre voice guidance. Home page par 5-step strip abhi live hai."
-                />
-              }
-            />
-            <Route
-              path="/about"
-              element={
-                <Placeholder
-                  title="About CallSuraksha AI"
-                  phase="About page — baad me poora hoga"
-                  text="CallSuraksha AI Gnani AI — The Great Indian AI Internship Challenge 2026 ke liye banaya ja raha hai. Ye recorded calls par risk-flag analysis karta hai — live interception, caller identification, deepfake detection ya auto-reporting nahi karta."
-                />
-              }
-            />
+            <Route path="/how-it-works" element={<HowItWorks />} />
+            <Route path="/about" element={<About />} />
             <Route
               path="*"
               element={

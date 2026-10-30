@@ -214,8 +214,13 @@ export function Results() {
                 <dd className="mt-0.5 font-medium">{formatDuration(stored.durationSeconds)}</dd>
               </div>
               <div>
-                <dt className="text-[#94A3B8]">Analyzed on</dt>
+                <dt className="text-[#94A3B8]">{stored.cached ? 'Cached result — analyzed on' : 'Analyzed on'}</dt>
                 <dd className="mt-0.5 font-medium">{formatAnalyzedAt(stored.analyzedAt)}</dd>
+                {stored.cached && (
+                  <dd className="mt-1 text-xs leading-relaxed text-[#94A3B8]">
+                    Ye purana analysis hai — is baar naya API call nahi hua.
+                  </dd>
+                )}
               </div>
               <div>
                 <dt className="text-[#94A3B8]">Model</dt>
