@@ -1,0 +1,47 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Sora:wght@600;700;800&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  --font-display: 'Sora', 'Inter', ui-sans-serif, sans-serif;
+
+  --color-night: #050d1c;
+  --color-secondary: #0a1830;
+  --color-card: #101d35;
+  --color-brand-orange: #ff6a2c;
+  --color-brand-red: #f3345e;
+  --color-brand-blue: #377bff;
+  --color-brand-purple: #8b5cf6;
+  --color-brand-green: #11cfa8;
+  --color-ink: #f8fafc;
+  --color-muted: #94a3b8;
+}
+
+body {
+  background-color: #050d1c;
+  color: #f8fafc;
+  font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-display {
+  font-family: 'Sora', 'Inter', ui-sans-serif, sans-serif;
+}
+
+.glass-card {
+  background: rgba(16, 29, 53, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  border-radius: 1rem;
+  backdrop-filter: blur(8px);
+}
+
+.text-gradient-brand {
+  background: linear-gradient(90deg, #ff6a2c, #f3345e);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.bg-gradient-brand {
+  background: linear-gradient(90deg, #ff6a2c, #f3345e);
+}
