@@ -1,0 +1,48 @@
+# CallSuraksha AI — Render blueprint (Phase 10).
+#
+# Single-service deployment: ONE Render web service builds the Vite
+# frontend AND runs the Express backend, which serves dist/ + /api from
+# the same origin. No CORS, no separate frontend host, no VITE_API_URL.
+#
+# HOW TO USE (only when Sujal approves a live deployment — NOT yet):
+#   1. Push the repo to GitHub (done for Phase 9; WAVs need the web-UI
+#      upload first — see docs/deployment-plan.md, Task E).
+#   2. Render dashboard -> New -> Web Service -> connect the repo, or
+#      "New from Blueprint" with this file. Render reads this file and
+#      creates the service with these settings.
+#   3. In the Render dashboard (Environment), set GNANI_API_KEY to a
+#      DEDICATED production key from app.gnani.ai. NEVER put the key
+#      value in this file, in git, or in chat.
+#   4. Optional staging gate: set STAGING_USER + STAGING_PASS in the
+#      dashboard to password-protect the staging URL.
+#
+# COST: plan "free" = $0 (spins down after 15 min idle, ~1 min wake-up,
+# 512 MB RAM, 750 free hours/month — enough for one service). Render's
+# own docs say free instances are NOT for production use; the first paid
+# step is $7/month (no spin-down). No card is needed for the free tier.
+# No paid resource is created by this file alone.
+
+services:
+  - type: web
+    name: callsuraksha-ai
+    runtime: node
+    plan: free
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: HOST
+        value: 0.0.0.0
+      # PORT is set automatically by Render — do not set it here.
+      # GNANI_API_KEY must be set in the dashboard (sync: false keeps it
+      # out of this file and out of git). Add it after creating the
+      # service; the app returns 503 GNANI_KEY_NOT_CONFIGURED until then.
+      - key: GNANI_API_KEY
+        sync: false
+      # Optional staging gate (leave unset for a public demo URL):
+      # - key: STAGING_USER
+      #   sync: false
+      # - key: STAGING_PASS
+      #   sync: false

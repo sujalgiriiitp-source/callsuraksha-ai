@@ -3,9 +3,13 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
     "server": "node server/index.js",
+    "start": "node server/index.js",
     "test:risk": "node server/test-risk-engine.js",
     "test": "npm run test:risk && npm run test:guidance && npm run test:metrics && npm run test:samples",
     "build": "tsc -b && vite build",
@@ -16,7 +20,11 @@
     "test:samples": "node server/test-samples.js"
   },
   "dependencies": {
+    "dotenv": "^16.6.1",
+    "express": "^4.22.3",
+    "express-rate-limit": "^8.7.2",
     "lucide-react": "^1.65.0",
+    "multer": "^2.5.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-router-dom": "^7.18.5"
