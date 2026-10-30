@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
   ArrowRight,
@@ -731,9 +731,17 @@ export function Analyze() {
                 <Play className="h-5 w-5 text-[#FF6A2C]" aria-hidden /> Try a Sample
               </h2>
               <p className="mt-2 text-sm leading-relaxed text-[#94A3B8]">
-                Synthetic demo calls — inhe suno aur samjho ki analysis kya dikhayega. Sample
-                audio Phase 8 me aayega; abhi sirf script aur risk band preview hai.
+                Synthetic demo calls — inhe suno aur samjho ki analysis kya dikhayega. Asli audio
+                aur Analyze Sample button Demo Samples page par hain.
               </p>
+              <div className="mt-4">
+                <Link
+                  to="/demo"
+                  className="inline-flex items-center gap-2 rounded-full bg-gradient-to-r from-[#FF6A2C] to-[#F3345E] px-4 py-2.5 text-sm font-semibold text-white transition hover:opacity-90"
+                >
+                  <Play className="h-4 w-4" aria-hidden /> Demo Samples page par suno
+                </Link>
+              </div>
               <div className="mt-5">
                 <SampleRows
                   picked={samplePicked}
@@ -742,8 +750,8 @@ export function Analyze() {
               </div>
               {samplePicked && (
                 <p className="mt-4 text-sm text-[#94A3B8]" role="status">
-                  “{samplePicked}” chuna gaya — sample audio Phase 8 me aayega. Tab tak file
-                  upload ya mic recording se analyze karo.
+                  “{samplePicked}” chuna gaya — iska asli audio Demo Samples page par hai, wahan se
+                  analyze karo.
                 </p>
               )}
             </GlowCard>

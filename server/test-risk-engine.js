@@ -111,6 +111,13 @@ const CASES = [
     mustContainCategory: null,
   },
   {
+    name: '14b legitimate bank advisory — OTP safety warning in Devanagari (Phase 8)',
+    transcript: 'यह एक safety message है। अपना OTP किसी को मत बताना। बैंक कभी phone पर OTP नहीं मांगता।',
+    expected: 'Low',
+    mustContainCategory: null,
+    mustContainAdvisory: 'अपना OTP किसी को मत बताना',
+  },
+  {
     name: '15 legitimate delivery OTP',
     transcript: 'Aapka delivery OTP 4821 hai, delivery boy ko batayein',
     expected: 'Low',
@@ -194,11 +201,15 @@ for (const testCase of CASES) {
   const categoryOk =
     testCase.mustContainCategory === null ||
     result.highlights.some((h) => h.category === testCase.mustContainCategory)
+  // A required advisory sentence must appear in the advisories list.
+  const advisoryOk =
+    !testCase.mustContainAdvisory ||
+    result.advisories.some((a) => a.includes(testCase.mustContainAdvisory))
   // Every highlight must carry all five required fields.
   const shapeOk = result.highlights.every(
     (h) => h.sentence && h.category && h.severity && h.reason && h.precaution,
   )
-  const ok = bandOk && categoryOk && shapeOk
+  const ok = bandOk && categoryOk && advisoryOk && shapeOk
   if (ok) {
     passed += 1
     console.log(`PASS ${testCase.name} -> ${result.riskBand}`)

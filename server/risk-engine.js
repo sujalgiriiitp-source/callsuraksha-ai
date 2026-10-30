@@ -79,6 +79,19 @@ const NEGATION_MARKERS = [
   /beware/i,
   /fraud\s+se\s+bach/i,
   /scam\s+se\s+bach/i,
+  // Devanagari forms — Prisma returns Hindi warnings in Devanagari, so
+  // the Roman-only markers above miss them (found by the Phase 8 OTP
+  // advisory sample: "अपना OTP किसी को मत बताना" was not an advisory).
+  /किसी\s+को\s+मत/,
+  /मत\s+बताना/,
+  /मत\s+बताओ/,
+  /मत\s+बताइये/,
+  /मत\s+बताइए/,
+  /कभी\s+मत/,
+  /कभी\s+नहीं/,
+  /नहीं\s+बताना/,
+  /शेयर\s+मत\s+करो/,
+  /सावधान/,
 ]
 
 // Legitimate contexts that neutralise an otherwise risky phrase.

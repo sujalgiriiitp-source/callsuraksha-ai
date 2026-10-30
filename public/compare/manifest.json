@@ -1,0 +1,28 @@
+{
+  "sourceSample": "bank-otp",
+  "referenceTranscript": "नमस्ते, मैं आपके बैंक से बोल रहा हूँ। आपका account block हो गया है। कृपया अपना OTP बताइये, वरना आपका पैसा कट जाएगा।",
+  "importantPhrases": [
+    "OTP",
+    "account block",
+    "बैंक"
+  ],
+  "noise": {
+    "type": "white noise (seeded PRNG, seed 20261031)",
+    "targetSnrDb": 12,
+    "measuredSnrDb": 12.01,
+    "signalRms": 5118,
+    "noiseRms": 1284.63,
+    "method": "SNR computed from the actual clean-signal and added-noise RMS levels (20*log10(signal/noise))."
+  },
+  "clean": {
+    "file": "samples/bank-otp.wav",
+    "durationSeconds": 15.68,
+    "bytes": 752684
+  },
+  "noisy": {
+    "file": "compare/bank-otp-noisy.wav",
+    "durationSeconds": 15.68,
+    "bytes": 752684,
+    "sha256": "3b20d40aa5e367935166c21d34272b08afb2506b429fe0c66f5ceabd5c03fd17"
+  }
+}

@@ -3,6 +3,8 @@ import { AppHeader } from './components/layout/AppHeader'
 import { Disclaimer } from './components/layout/Disclaimer'
 import { MobileNav } from './components/layout/MobileNav'
 import { Analyze } from './pages/Analyze'
+import { Compare } from './pages/Compare'
+import { Demo } from './pages/Demo'
 import { Home } from './pages/Home'
 import { Placeholder } from './pages/Placeholder'
 import { Results } from './pages/Results'
@@ -22,31 +24,13 @@ export default function App() {
               element={
                 <Placeholder
                   title="AI Voice Guidance"
-                  phase="Phase 7 me banega"
-                  text="Yahan Gnani Timbre ki Hindi/Hinglish voice guidance sunne ko milegi. Timbre abhi connected nahi hai."
+                  phase="Phase 7 — Results dashboard me live hai"
+                  text="Voice guidance ka alag page nahi hai — kisi call ko analyze karo, phir uske Results page par Gnani Timbre ki Hindi/Hinglish guidance suno."
                 />
               }
             />
-            <Route
-              path="/compare"
-              element={
-                <Placeholder
-                  title="Clean vs Noisy Comparison"
-                  phase="Phase 8 me banega"
-                  text="Yahan ek hi synthetic call ka clean aur noisy version side-by-side compare hoga, taaki Prisma ka noisy-audio performance dikh sake."
-                />
-              }
-            />
-            <Route
-              path="/demo"
-              element={
-                <Placeholder
-                  title="Demo Samples"
-                  phase="Phase 8 me banega"
-                  text="Yahan synthetic demo samples aayenge — audio Phase 8 me Timbre se generate hoga. Abhi koi audio, transcript ya duration yahan nahi hai."
-                />
-              }
-            />
+            <Route path="/compare" element={<Compare />} />
+            <Route path="/demo" element={<Demo />} />
             <Route
               path="/how-it-works"
               element={
