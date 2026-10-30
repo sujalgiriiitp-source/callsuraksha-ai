@@ -105,3 +105,25 @@ export async function isVaultAvailable() {
     return false
   }
 }
+
+/**
+ * Resolve the Gnani credential, Vault-first.
+ * Returns { headerName, value, source } or undefined when no credential
+ * is available anywhere. The value is a surrogate when source is "vault"
+ * (swapped for the real key by the runtime egress) or the real key when
+ * source is "env" (local fallback only, e.g. a MacBook clone with no
+ * Vault). Callers must never log the value.
+ */
+export async function resolveGnaniCredential() {
+  try {
+    const vault = await getVaultCredential()
+    return { headerName: vault.headerName, value: vault.surrogate, source: 'vault' }
+  } catch {
+    // No Vault here — fall back to a local .env key.
+  }
+  const envKey = process.env.GNANI_API_KEY
+  if (envKey && envKey.trim()) {
+    return { headerName: 'X-API-Key-ID', value: envKey.trim(), source: 'env' }
+  }
+  return undefined
+}

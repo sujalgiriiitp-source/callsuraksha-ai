@@ -12,7 +12,8 @@
  *
  * Endpoints:
  *   GET  /api/health      -> { status: "ok", gnaniKeyConfigured: boolean, keySource: "vault" | "env" | "none" }
- *   POST /api/transcribe  -> multipart audio_file -> real Prisma STT
+ *   POST /api/transcribe  -> multipart audio_file -> real Prisma STT + risk analysis
+ *   POST /api/guidance    -> JSON { analysis, voice } -> real Timbre TTS (WAV, base64)
  *
  * Audio is processed in memory only (multer memoryStorage). Nothing is
  * written to disk and there is no database. Logs carry one line per
@@ -23,14 +24,17 @@ import 'dotenv/config'
 import express from 'express'
 import multer from 'multer'
 import {
-  getVaultCredential,
   invalidateVaultCredential,
   isVaultAvailable,
+  resolveGnaniCredential,
 } from './vault-key.js'
 import { analyzeTranscript } from './risk-engine.js'
+import { buildGuidanceScript, GUIDANCE_VOICES } from './guidance-script.js'
+import { pcmDurationSeconds, pcmToWav } from './wav.js'
 
 const PORT = Number(process.env.PORT ?? 3001)
 const GNANI_STT_URL = 'https://api.vachana.ai/stt/v3'
+const GNANI_TTS_URL = 'https://api.vachana.ai/api/v1/tts/inference'
 const MAX_BYTES = 5 * 1024 * 1024 // locked MVP cap: max 5 MB
 
 const ACCEPTED_EXTS = new Set(['wav', 'mp3', 'ogg', 'flac', 'aac', 'm4a'])
@@ -48,27 +52,6 @@ const ACCEPTED_MIMES = new Set([
   'audio/mp4',
   'audio/x-m4a',
 ])
-
-/**
- * Resolve the Gnani credential, Vault-first.
- * Returns { headerName, value, source } or undefined when no credential
- * is available anywhere. The value is a surrogate when source is "vault"
- * (swapped for the real key by the runtime egress) or the real key when
- * source is "env" (local fallback only). Callers must never log it.
- */
-async function resolveGnaniCredential() {
-  try {
-    const vault = await getVaultCredential()
-    return { headerName: vault.headerName, value: vault.surrogate, source: 'vault' }
-  } catch {
-    // No Vault here (e.g. MacBook clone) — fall back to a local .env key.
-  }
-  const envKey = process.env.GNANI_API_KEY
-  if (envKey && envKey.trim()) {
-    return { headerName: 'X-API-Key-ID', value: envKey.trim(), source: 'env' }
-  }
-  return undefined
-}
 
 async function getKeySource() {
   if (await isVaultAvailable()) return 'vault'
@@ -272,6 +255,131 @@ app.post('/api/transcribe', upload.single('audio_file'), async (req, res) => {
     return res.status(502).json({
       error: 'NETWORK_ERROR',
       message: 'Gnani se connect nahi ho paya — network check karke dobara try karo.',
+    })
+  }
+})
+
+// Phase 7 — voice guidance. The spoken script is built ONLY from the
+// real risk analysis (band, categories, safe steps) — never invented, and
+// never a fraud claim. Timbre returns raw s16le PCM (mono, 24 kHz); the
+// server wraps it as WAV before sending it to the browser. On a TTS
+// failure the script is still returned, so the frontend can show the text
+// guidance instead of breaking.
+app.post('/api/guidance', async (req, res) => {
+  const analysis = req.body?.analysis
+  const voiceKey = req.body?.voice === 'nalini' ? 'nalini' : 'poorvi'
+
+  let guidance
+  try {
+    guidance = buildGuidanceScript(analysis, voiceKey)
+  } catch (err) {
+    console.log(`[guidance] fail status=400 ${err?.message ?? 'invalid analysis'}`)
+    return res.status(400).json({
+      error: 'INVALID_ANALYSIS',
+      message: 'Risk analysis sahi nahi hai — pehle call analyze karo, phir guidance mango.',
+    })
+  }
+
+  let credential = await resolveGnaniCredential()
+  if (!credential) {
+    console.log('[guidance] fail status=503 GNANI_KEY_NOT_CONFIGURED')
+    return res.status(503).json({
+      error: 'GNANI_KEY_NOT_CONFIGURED',
+      message: 'Gnani key not set — server par key configure karo, phir dobara try karo.',
+      script: guidance.script,
+      voice: guidance.voice,
+      model: guidance.model,
+      language: guidance.language,
+    })
+  }
+
+  try {
+    const sendToTimbre = async () =>
+      fetch(GNANI_TTS_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'User-Agent': 'CallSuraksha-AI/1.0',
+          [credential.headerName]: credential.value,
+        },
+        body: JSON.stringify({
+          text: guidance.script,
+          model: guidance.model,
+          voice: guidance.voice,
+          language: guidance.language,
+          speed: 1.0,
+        }),
+      })
+
+    let upstream = await sendToTimbre()
+    // On a 401 with a Vault surrogate, refetch once (rotation-safe).
+    if (upstream.status === 401 && credential.source === 'vault') {
+      invalidateVaultCredential()
+      const fresh = await resolveGnaniCredential()
+      if (fresh) {
+        credential = fresh
+        upstream = await sendToTimbre()
+      }
+    }
+
+    if (!upstream.ok) {
+      const detail = await gnaniErrorDetail(upstream)
+      const status = upstream.status
+      const messages = {
+        401: 'Gnani key invalid ya missing hai — key check karo.',
+        402: 'Gnani credits khatam ho gaye — balance check karo.',
+        403: 'Is key ko TTS ki permission nahi hai — scope check karo.',
+        429: 'Gnani rate limit — thoda rukkar dobara try karo.',
+        504: 'Gnani se jawab time par nahi aaya — dobara try karo.',
+      }
+      console.log(`[guidance] fail status=${status} detail=${detail}`)
+      return res.status(status).json({
+        error: detail,
+        message: messages[status] ?? 'Voice guidance nahi ban payi — text guidance padho.',
+        script: guidance.script,
+        voice: guidance.voice,
+        model: guidance.model,
+        language: guidance.language,
+      })
+    }
+
+    const pcm = Buffer.from(await upstream.arrayBuffer())
+    if (pcm.length === 0) {
+      console.log('[guidance] fail status=502 empty_audio')
+      return res.status(502).json({
+        error: 'EMPTY_AUDIO',
+        message: 'Gnani se khaali audio aaya — dobara try karo.',
+        script: guidance.script,
+        voice: guidance.voice,
+        model: guidance.model,
+        language: guidance.language,
+      })
+    }
+    const wav = pcmToWav(pcm)
+    const durationSeconds = pcmDurationSeconds(pcm.length)
+    console.log(
+      `[guidance] ok status=200 voice=${guidance.voice} duration=${durationSeconds.toFixed(1)}s`,
+    )
+    return res.json({
+      success: true,
+      script: guidance.script,
+      voice: guidance.voice,
+      model: guidance.model,
+      language: guidance.language,
+      audioMime: 'audio/wav',
+      audioBase64: wav.toString('base64'),
+      durationSeconds: Math.round(durationSeconds * 100) / 100,
+      pcmBytes: pcm.length,
+    })
+  } catch {
+    console.log('[guidance] fail status=502 network_error')
+    return res.status(502).json({
+      error: 'NETWORK_ERROR',
+      message: 'Gnani se connect nahi ho paya — network check karke dobara try karo.',
+      script: guidance.script,
+      voice: guidance.voice,
+      model: guidance.model,
+      language: guidance.language,
     })
   }
 })

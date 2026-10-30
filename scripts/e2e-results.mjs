@@ -1,16 +1,18 @@
 /**
- * CallSuraksha AI — Phase 6 end-to-end test (Playwright, headless shell).
+ * CallSuraksha AI — Phase 6 + 7 end-to-end test (Playwright, headless shell).
  *
  * Runs the REAL user flow in a real browser against the dev server:
  *   /analyze -> upload a synthetic WAV -> language + consent ->
- *   Analyze with AI -> auto-navigate to /results -> verify real data.
+ *   Analyze with AI -> auto-navigate to /results -> verify real data ->
+ *   Phase 7: real Timbre voice guidance (Poorvi, then Nalini) with
+ *   play/pause/restart/download/speed controls.
  *
  * Usage (servers must be running first):
  *   npm run server &  npm run dev -- --port 5173 --host 127.0.0.1 &
  *   node scripts/e2e-results.mjs
  *
  * Screenshots land in ~/workspace/gnani-ai-challenge/ui-verification/
- * as phase6-results-desktop.png / phase6-results-mobile.png.
+ * as phase7-results-desktop.png / phase7-results-mobile.png.
  * Exit code 0 = all checks pass, 1 = any failure.
  */
 
@@ -66,7 +68,7 @@ async function runFlow(browser, viewport, label) {
   check(`${label}: no fake score shown`, !/\b9[0-9]\/100\b/.test(bodyText) && !bodyText.includes('92/100'))
   check(`${label}: no Report Call button`, !bodyText.includes('Report Call'))
   check(`${label}: disclaimer visible`, bodyText.includes('risk flag'))
-  check(`${label}: Phase 7 voice guidance marked coming soon`, bodyText.includes('Phase 7'))
+  check(`${label}: voice guidance is real Timbre, not a placeholder`, bodyText.includes('Gnani Timbre') && !bodyText.includes('coming soon'))
 
   // Audio playback element present with a blob URL.
   const audioSrc = await page.$eval('audio', (el) => el.getAttribute('src') || '')
@@ -78,18 +80,69 @@ async function runFlow(browser, viewport, label) {
   check(`${label}: audio actually plays`, playing)
   await page.$eval('audio', (el) => el.pause())
 
+  // Phase 7 — real Timbre voice guidance (default voice: Poorvi, Hinglish).
+  // The guidance fetch is a live Timbre call, so allow up to 60 s. Gnani
+  // can transiently rate-limit (429) — if the error state appears, the
+  // retry button gets one more attempt before the check fails.
+  const waitForGuidanceReady = async () => {
+    try {
+      await page.waitForSelector('text=Guidance taiyaar hai', { timeout: 30000 })
+    } catch {
+      const retry = page.getByRole('button', { name: 'Dobara try karo' })
+      if (await retry.isVisible().catch(() => false)) {
+        await retry.click()
+        await page.waitForSelector('text=Guidance taiyaar hai', { timeout: 60000 })
+      } else {
+        throw new Error('guidance never became ready')
+      }
+    }
+  }
+  await waitForGuidanceReady()
+  const guidanceText = await page.textContent('body')
+  check(`${label}: guidance ready with real Poorvi script`, guidanceText.includes('Savdhaan! Ye call high risk lag rahi hai'))
+  const guidanceSrc = await page.getByTestId('guidance-audio').getAttribute('src')
+  check(`${label}: guidance audio element with blob URL`, (guidanceSrc ?? '').startsWith('blob:'))
+  // Play -> pause -> restart controls.
+  await page.getByTestId('guidance-play').click()
+  await page.waitForTimeout(800)
+  const guidancePlaying = await page.getByTestId('guidance-audio').evaluate((el) => !el.paused && el.currentTime > 0)
+  check(`${label}: guidance audio actually plays`, guidancePlaying)
+  await page.getByTestId('guidance-play').click()
+  await page.waitForTimeout(300)
+  const guidancePaused = await page.getByTestId('guidance-audio').evaluate((el) => el.paused)
+  check(`${label}: guidance pause works`, guidancePaused)
+  await page.getByTestId('guidance-restart').click()
+  await page.waitForTimeout(500)
+  const guidanceRestarted = await page.getByTestId('guidance-audio').evaluate((el) => !el.paused && el.currentTime < 1)
+  check(`${label}: guidance restart works`, guidanceRestarted)
+  await page.getByTestId('guidance-audio').evaluate((el) => el.pause())
+  // Download link + speed control.
+  const downloadHref = await page.getByTestId('guidance-download').getAttribute('href')
+  check(`${label}: guidance download link is a blob URL`, (downloadHref ?? '').startsWith('blob:'))
+  await page.getByTestId('guidance-speed').click()
+  const speedText = await page.getByTestId('guidance-speed').textContent()
+  check(`${label}: guidance speed control cycles`, (speedText ?? '').includes('1.25x'))
+
   // Screenshot the full results page while the Transcript tab (default)
   // is active, so the highlighted transcript is visible.
   await page.screenshot({
-    path: path.join(SHOTS, `phase6-results-${label}.png`),
+    path: path.join(SHOTS, `phase7-results-${label}.png`),
     fullPage: true,
   })
-  console.log(`  screenshot: phase6-results-${label}.png`)
+  console.log(`  screenshot: phase7-results-${label}.png`)
   // Clean viewport shot of the top (no sticky-header stitch artefact).
   await page.evaluate(() => window.scrollTo(0, 0))
   await page.waitForTimeout(300)
-  await page.screenshot({ path: path.join(SHOTS, `phase6-results-${label}-top.png`) })
-  console.log(`  screenshot: phase6-results-${label}-top.png`)
+  await page.screenshot({ path: path.join(SHOTS, `phase7-results-${label}-top.png`) })
+  console.log(`  screenshot: phase7-results-${label}-top.png`)
+
+  // Phase 7 — switch voice to Hindi (Nalini): a second live Timbre call.
+  await page.getByTestId('guidance-voice-nalini').click()
+  await waitForGuidanceReady()
+  const naliniText = await page.textContent('body')
+  check(`${label}: Nalini guidance ready with Devanagari script`, naliniText.includes('सावधान! यह कॉल high risk लग रही है'))
+  const naliniSrc = await page.getByTestId('guidance-audio').getAttribute('src')
+  check(`${label}: Nalini guidance audio has blob URL`, (naliniSrc ?? '').startsWith('blob:'))
 
   // Interactive: click a highlighted transcript sentence -> indicator card activates.
   const sentenceBtn = page.locator('button:has-text("कृपया अपना OTP बताइये")').first()

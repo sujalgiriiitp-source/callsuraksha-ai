@@ -7,10 +7,11 @@
     "dev": "vite",
     "server": "node server/index.js",
     "test:risk": "node server/test-risk-engine.js",
-    "test": "npm run test:risk",
+    "test": "npm run test:risk && npm run test:guidance",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:guidance": "node server/test-guidance.js"
   },
   "dependencies": {
     "lucide-react": "^1.65.0",

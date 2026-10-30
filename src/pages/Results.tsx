@@ -2,18 +2,16 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   AlertTriangle,
-  AudioLines,
   Download,
   FileAudio,
   HelpCircle,
   Info,
   Lightbulb,
-  Play,
-  Quote,
   ShieldCheck,
   ShieldAlert,
 } from 'lucide-react'
 import { GlowCard } from '../components/GlowCard'
+import { VoiceGuidance } from '../components/VoiceGuidance'
 import {
   categoryLabel,
   getLastAnalysis,
@@ -475,40 +473,9 @@ export function Results() {
           </GlowCard>
         </div>
 
-        {/* Right column: voice guidance (Phase 7 placeholder) + safe actions (desktop cols 9–12) */}
+        {/* Right column: voice guidance (Phase 7, real Timbre) + safe actions (desktop cols 9–12) */}
         <div className="order-3 space-y-6 lg:order-none lg:col-span-4 lg:col-start-9 lg:row-start-1">
-          <GlowCard className="border-[#8B5CF6]/40">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-display flex items-center gap-2 text-lg font-semibold">
-                <AudioLines className="h-5 w-5 text-[#8B5CF6]" aria-hidden /> AI Voice Guidance
-              </h2>
-              <span className="rounded-full bg-[#8B5CF6]/15 px-2.5 py-1 text-xs font-semibold text-[#8B5CF6]">
-                Phase 7 — coming soon
-              </span>
-            </div>
-            <p className="mt-2 text-sm leading-relaxed text-[#94A3B8]">
-              Is call ki Hindi safety guidance Phase 7 me Gnani Timbre se sunne ko milegi. Abhi
-              koi voice audio generate nahi hua hai.
-            </p>
-            <div className="mt-4 flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 opacity-60">
-              <span
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#8B5CF6]"
-                aria-hidden
-              >
-                <Play className="h-5 w-5 text-white" />
-              </span>
-              <span className="text-sm text-[#94A3B8]">Voice guidance — Phase 7 me aayega</span>
-            </div>
-            <div className="mt-4 rounded-xl bg-[#8B5CF6]/10 px-4 py-3">
-              <p className="flex items-start gap-2 text-sm leading-relaxed">
-                <Quote className="mt-0.5 h-4 w-4 shrink-0 text-[#8B5CF6]" aria-hidden />
-                <span>
-                  <span className="font-medium">Planned script (abhi audio nahi hai): </span>
-                  {analysis.safeSteps[0]}
-                </span>
-              </p>
-            </div>
-          </GlowCard>
+          <VoiceGuidance analysis={analysis} />
 
           <GlowCard className="border-[#11CFA8]/30">
             <h2 className="font-display flex items-center gap-2 text-lg font-semibold">
