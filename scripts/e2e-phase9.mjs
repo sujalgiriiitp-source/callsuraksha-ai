@@ -27,7 +27,7 @@ import fs from 'node:fs'
 const APP = 'http://127.0.0.1:5173'
 const OUT = '/home/hatch/workspace/gnani-ai-challenge/ui-verification/phase9'
 const EXE =
-  '/home/hatch/.cache/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell'
+  '/home/hatch/.cache/ms-playwright/chromium_headless_shell-1248/chrome-headless-shell-linux64/chrome-headless-shell'
 const SERVER_LOG = '/tmp/phase9-server.log'
 
 let passed = 0

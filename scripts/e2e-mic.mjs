@@ -38,7 +38,7 @@ const API = 'http://127.0.0.1:3001'
 const WEBM = '/home/hatch/workspace/gnani-ai-challenge/api-tests/bank-otp-speech.webm'
 const SHOTS = '/home/hatch/workspace/gnani-ai-challenge/ui-verification'
 const EXECUTABLE =
-  '/home/hatch/.cache/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell'
+  '/home/hatch/.cache/ms-playwright/chromium_headless_shell-1248/chrome-headless-shell-linux64/chrome-headless-shell'
 
 const checks = []
 function check(name, ok, extra = '') {

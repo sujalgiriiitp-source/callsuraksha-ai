@@ -164,12 +164,12 @@ before launch.
    production key and replace the value in the dashboard, then revoke
    the old one at app.gnani.ai. Never put the key in chat, email, git,
    render.yaml, or frontend code.
-5. **Rate-limit reality check:** the server limits each IP to 20
-   transcribe + 20 guidance calls per 15 minutes, but a public demo
-   URL can still burn Gnani credits if many people use it. Watch the
-   credit balance at app.gnani.ai; if it drops fast, set
-   `STAGING_USER`/`STAGING_PASS` to gate the URL, or take the service
-   down from the Render dashboard (Suspend).
+5. **Rate-limit reality check:** the server limits each IP to a COMBINED
+   10 AI requests (transcribe + guidance together) per 15 minutes, but a
+   public demo URL can still burn Gnani credits if many people use it.
+   Watch the credit balance at app.gnani.ai; if it drops fast, set
+   `AI_ENABLED=false` in Environment to stop paid AI calls at once, or
+   take the service down from the Render dashboard (Suspend).
 
 ## 9. Rollback process
 

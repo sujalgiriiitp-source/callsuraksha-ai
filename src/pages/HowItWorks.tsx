@@ -204,9 +204,11 @@ export function HowItWorks() {
         </div>
       </section>
 
-      {/* Guidance + privacy */}
+      {/* Guidance + privacy — grid items need min-w-0 so their min-content
+          never forces the single-column track wider than the viewport
+          (Phase 6: HowItWorks overflow at 320/375px when guidance is ready). */}
       <section className="grid gap-4 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-        <GlowCard>
+        <GlowCard className="min-w-0">
           <div className="flex items-start gap-3">
             <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#11CFA8]/15 text-[#11CFA8]">
               <ShieldCheck className="h-5 w-5" aria-hidden />
@@ -245,7 +247,7 @@ export function HowItWorks() {
           </div>
         </GlowCard>
 
-        <GlowCard className="border-[#377BFF]/30">
+        <GlowCard className="min-w-0 border-[#377BFF]/30">
           <h2 className="font-display flex items-center gap-2 font-semibold">
             <Lock className="h-5 w-5 text-[#377BFF]" aria-hidden /> Your Privacy is Our Priority
           </h2>

@@ -221,6 +221,14 @@ const PATTERNS = [
       /customer\s+care\s+(se|से)/i,
       /cyber\s+cell\s+(se|से)/i,
       /head\s+office\s+(se|से)/i,
+      // English impersonation phrasing (Phase 6): "calling from your bank",
+      // "this is your bank calling", "speaking from your bank",
+      // "calling on behalf of your bank". A claim to BE the bank is an
+      // impersonation signal (Medium — verify the caller), never a verdict.
+      /calling from (your|the) (bank|rbi)/i,
+      /bank calling/i,
+      /speaking from (your|the) bank/i,
+      /on behalf of (your|the) bank/i,
     ],
   },
   {

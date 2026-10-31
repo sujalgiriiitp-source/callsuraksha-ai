@@ -182,7 +182,7 @@ export function VoiceGuidance({
   const progress = state.status === 'ready' && state.duration > 0 ? (currentTime / state.duration) * 100 : 0
 
   return (
-    <GlowCard className="border-[#8B5CF6]/40">
+    <GlowCard className="min-w-0 border-[#8B5CF6]/40">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="font-display flex items-center gap-2 text-lg font-semibold">
           <AudioLines className="h-5 w-5 text-[#8B5CF6]" aria-hidden /> AI Voice Guidance
@@ -192,8 +192,10 @@ export function VoiceGuidance({
         </span>
       </div>
 
-      {/* Voice switch */}
-      <div className="mt-3 flex gap-2" role="group" aria-label="Guidance voice">
+      {/* Voice switch — wraps on narrow screens so the two buttons never
+          force the card wider than the viewport (Phase 6: HowItWorks
+          overflow at 320/375px). */}
+      <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Guidance voice">
         {(['poorvi', 'nalini'] as const).map((key) => (
           <button
             key={key}

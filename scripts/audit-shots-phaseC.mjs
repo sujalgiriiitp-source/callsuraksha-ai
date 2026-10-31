@@ -1,7 +1,7 @@
 import { chromium } from 'playwright-core'
 const APP = 'http://127.0.0.1:3001'
 const OUT = '/home/hatch/workspace/gnani-ai-challenge/ui-verification/phaseC'
-const EXE = '/home/hatch/.cache/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell'
+const EXE = '/home/hatch/.cache/ms-playwright/chromium_headless_shell-1248/chrome-headless-shell-linux64/chrome-headless-shell'
 const b = await chromium.launch({ executablePath: EXE })
 for (const [label, w, h] of [['desktop', 1440, 900], ['mobile', 390, 844]]) {
   const ctx = await b.newContext({ viewport: { width: w, height: h } })

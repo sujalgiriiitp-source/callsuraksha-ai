@@ -20,7 +20,7 @@ import { chromium } from 'playwright-core'
 
 const APP = process.env.PROD_URL || 'http://localhost:3001'
 const EXE =
-  '/home/hatch/.cache/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell'
+  '/home/hatch/.cache/ms-playwright/chromium_headless_shell-1248/chrome-headless-shell-linux64/chrome-headless-shell'
 
 let passed = 0
 let failed = 0

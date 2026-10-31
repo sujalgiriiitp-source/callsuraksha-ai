@@ -22,7 +22,7 @@ import path from 'node:path'
 const APP = 'http://127.0.0.1:5173'
 const SHOTS = '/home/hatch/workspace/gnani-ai-challenge/ui-verification'
 const EXECUTABLE =
-  '/home/hatch/.cache/ms-playwright/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell'
+  '/home/hatch/.cache/ms-playwright/chromium_headless_shell-1248/chrome-headless-shell-linux64/chrome-headless-shell'
 
 const checks = []
 function check(name, ok, extra = '') {

@@ -102,6 +102,13 @@ const CASES = [
     expected: 'Medium',
     mustContainCategory: 'IMPERSONATION',
   },
+  {
+    name: '13b English bank impersonation — "calling from your bank" (Phase 6)',
+    transcript:
+      'Hello, I am calling from your bank. Your account needs verification.',
+    expected: 'Medium',
+    mustContainCategory: 'IMPERSONATION',
+  },
 
   // --- Genuine / safe conversations (false-positive traps) -----------------
   {
@@ -153,6 +160,12 @@ const CASES = [
   {
     name: '20 negation in English',
     transcript: 'Never share your OTP with anyone. The bank will never ask for it.',
+    expected: 'Low',
+    mustContainCategory: null,
+  },
+  {
+    name: '20b benign English — "called the bank" must NOT fire impersonation (Phase 6)',
+    transcript: 'I called the bank yesterday to ask about my balance.',
     expected: 'Low',
     mustContainCategory: null,
   },
