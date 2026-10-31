@@ -15,7 +15,8 @@
  * Endpoints:
  *   GET  /api/health      -> { status: "ok", gnaniKeyConfigured: boolean, keySource: "vault" | "env" | "none" }
  *   POST /api/transcribe  -> multipart audio_file -> real Prisma STT + risk analysis
- *   POST /api/guidance    -> JSON { analysis, voice } -> real Timbre TTS (WAV, base64)
+ *   POST /api/guidance    -> JSON { request_id, voice } -> real Timbre TTS (WAV, base64)
+ *                           (the analysis comes from the transcribe receipt, never the client)
  *
  * Production behaviour (Phase 10):
  *   - `NODE_ENV=production` + a built `dist/` -> the server also serves
@@ -23,9 +24,21 @@
  *     frontend's relative `/api/...` calls work with no CORS and no
  *     build-time API URL. In dev (no NODE_ENV=production) Vite serves
  *     the frontend and proxies /api here, exactly as before.
- *   - Rate limiting on the two Gnani-backed endpoints (20 req / 15 min
- *     per IP each) so one visitor cannot burn the Gnani credit pool.
- *     /api/health is NOT rate-limited (hosts use it as a health check).
+ *   - ONE combined rate limit on the two Gnani-backed endpoints: 10
+ *     expensive AI requests per 15 minutes per IP, counted across
+ *     /api/transcribe + /api/guidance together (Phase A). /api/health is
+ *     NOT rate-limited (hosts use it as a health check).
+ *   - Emergency switch `AI_ENABLED`: only the exact value `true`
+ *     enables the AI endpoints. Missing, empty or any other value blocks
+ *     every paid Gnani call with 503 (Phase A) — so a misconfigured
+ *     deploy fails closed instead of burning credits.
+ *   - At most 2 Gnani calls run at the same time (Phase A); a third
+ *     caller gets 503 SERVER_BUSY instead of queuing.
+ *   - /api/guidance only accepts a request_id from a real transcribe
+ *     the server performed (Phase A) — a client-sent analysis object is
+ *     never trusted, so forged analyses cannot trigger TTS.
+ *   - WAV uploads get their duration checked server-side from the RIFF
+ *     header (Phase A); over 30 s is rejected before any Gnani call.
  *   - Optional staging basic auth: set BOTH STAGING_USER and
  *     STAGING_PASS to gate the whole service (except /api/health).
  *   - Optional CORS: set ALLOWED_ORIGINS (comma-separated) only when
@@ -55,6 +68,14 @@ import {
 import { analyzeTranscript } from './risk-engine.js'
 import { buildGuidanceScript, GUIDANCE_VOICES } from './guidance-script.js'
 import { pcmDurationSeconds, pcmToWav } from './wav.js'
+import { MAX_AUDIO_DURATION_SECONDS, wavDurationSeconds } from './wav-duration.js'
+import {
+  activeGnaniCalls,
+  MAX_CONCURRENT_GNANI,
+  releaseGnaniSlot,
+  tryAcquireGnaniSlot,
+} from './gnani-slots.js'
+import { getAnalysisReceipt, storeAnalysisReceipt } from './analysis-receipts.js'
 
 const PORT = Number(process.env.PORT ?? 3001)
 const HOST = process.env.HOST ?? '0.0.0.0'
@@ -179,26 +200,47 @@ if (ALLOWED_ORIGINS.length > 0) {
   })
 }
 
-// ---- Rate limiting on the Gnani-backed endpoints only. Each Gnani call
+// ---- Emergency switch (Phase A): AI_ENABLED.
+// Only the EXACT value `true` enables the paid AI endpoints. Missing,
+// empty or anything else (false, TRUE, 1, yes) blocks every Gnani call
+// with 503 — a misconfigured deploy fails closed instead of burning
+// credits. Flip it in the host dashboard (Render: Environment) and the
+// service restarts with the new value; no code change is needed.
+function isAiEnabled() {
+  return process.env.AI_ENABLED === 'true'
+}
+function requireAiEnabled(_req, res, next) {
+  if (!isAiEnabled()) {
+    console.log('[api] fail status=503 ai_disabled')
+    return res.status(503).json({
+      error: 'AI_DISABLED',
+      message:
+        'AI analysis abhi band hai — demo samples sun sakte ho. (Server par AI_ENABLED=true set karo.)',
+    })
+  }
+  next()
+}
+
+// ---- ONE combined rate limit on the Gnani-backed endpoints (Phase A).
+// A single limiter instance is shared by /api/transcribe and
+// /api/guidance, so 10 expensive AI requests per 15 minutes per IP are
+// counted ACROSS both endpoints together — not 10 each. Each Gnani call
 // costs programme credits, so one visitor must not be able to fire
 // hundreds of them. /api/health is exempt (hosts use it for health
-// checks). Limits are demo-appropriate, not a substitute for watching
+// checks). The limit is demo-appropriate, not a substitute for watching
 // the Gnani credit balance — see the deployment plan.
-const gnaniLimiter = (endpoint) =>
-  rateLimit({
-    windowMs: 15 * 60 * 1000,
-    limit: 20,
-    standardHeaders: 'draft-7',
-    legacyHeaders: false,
-    handler: (_req, res) => {
-      res.status(429).json({
-        error: 'RATE_LIMITED',
-        message: 'Bahut saari requests — 15 minute rukkar dobara try karo.',
-      })
-    },
-  })
-const transcribeLimiter = gnaniLimiter('transcribe')
-const guidanceLimiter = gnaniLimiter('guidance')
+const aiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  handler: (_req, res) => {
+    res.status(429).json({
+      error: 'RATE_LIMITED',
+      message: 'Bahut saari requests — 15 minute rukkar dobara try karo.',
+    })
+  },
+})
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -210,7 +252,7 @@ app.get('/api/health', async (_req, res) => {
   res.json({ status: 'ok', gnaniKeyConfigured: keySource !== 'none', keySource })
 })
 
-app.post('/api/transcribe', transcribeLimiter, upload.single('audio_file'), async (req, res) => {
+app.post('/api/transcribe', requireAiEnabled, aiLimiter, upload.single('audio_file'), async (req, res) => {
   // 1. File present?
   const file = req.file
   if (!file || file.size === 0) {
@@ -250,6 +292,19 @@ app.post('/api/transcribe', transcribeLimiter, upload.single('audio_file'), asyn
       error: 'FILE_TOO_LARGE',
       message: 'File bahut badi hai — limit max 5 MB hai.',
     })
+  }
+
+  // 3b. Duration — WAV only (the RIFF header carries it; other formats
+  //     rely on the client's check + Prisma's own 30 s rejection as the
+  //     backstop). Rejected BEFORE any Gnani call, so no credit is spent.
+  if (ext === 'wav') {
+    const duration = wavDurationSeconds(file.buffer)
+    if (duration !== null && duration > MAX_AUDIO_DURATION_SECONDS) {
+      return res.status(400).json({
+        error: 'AUDIO_TOO_LONG',
+        message: `Audio bahut lamba hai — limit max ${MAX_AUDIO_DURATION_SECONDS} seconds hai.`,
+      })
+    }
   }
 
   // 4. Language + model rules.
@@ -295,6 +350,19 @@ app.post('/api/transcribe', transcribeLimiter, upload.single('audio_file'), asyn
     return res.status(503).json({
       error: 'GNANI_KEY_NOT_CONFIGURED',
       message: 'Gnani key not set — server par key configure karo, phir dobara try karo.',
+    })
+  }
+
+  // 5b. Concurrency cap — at most 2 Gnani calls at once (transcribe +
+  //     guidance combined). A third caller gets 503 instead of queuing,
+  //     which protects the 512 MB instance and bounds simultaneous
+  //     credit burn. The slot is released in the `finally` below, on
+  //     every path out of the Gnani call.
+  if (!tryAcquireGnaniSlot()) {
+    console.log('[transcribe] fail status=503 server_busy')
+    return res.status(503).json({
+      error: 'SERVER_BUSY',
+      message: 'Server busy hai — thoda rukkar dobara try karo.',
     })
   }
 
@@ -356,6 +424,13 @@ app.post('/api/transcribe', transcribeLimiter, upload.single('audio_file'), asyn
     // timestamps, confidence, or any percentage — plus the Phase 5
     // risk analysis of the real transcript (rule-based, explainable).
     const transcript = typeof data?.transcript === 'string' ? data.transcript : ''
+    const analysis = analyzeTranscript(transcript)
+    // Receipt for /api/guidance: only a transcribe the server performed
+    // can authorize a later TTS call (Phase A). The client gets the
+    // request_id in the response and sends it back for guidance.
+    if (typeof data?.request_id === 'string' && data.request_id) {
+      storeAnalysisReceipt(data.request_id, analysis)
+    }
     console.log(`[transcribe] ok status=200 model=${data?.model ?? 'unknown'}`)
     return res.json({
       success: true,
@@ -365,7 +440,7 @@ app.post('/api/transcribe', transcribeLimiter, upload.single('audio_file'), asyn
       detected_language_code: data?.detected_language_code ?? null,
       processing_time: data?.processing_time ?? null,
       end_to_end_latency: data?.end_to_end_latency ?? null,
-      analysis: analyzeTranscript(transcript),
+      analysis,
     })
   } catch (err) {
     // AbortSignal.timeout() surfaces as a TimeoutError — a slow Gnani,
@@ -382,6 +457,8 @@ app.post('/api/transcribe', transcribeLimiter, upload.single('audio_file'), asyn
       error: 'NETWORK_ERROR',
       message: 'Gnani se connect nahi ho paya — network check karke dobara try karo.',
     })
+  } finally {
+    releaseGnaniSlot()
   }
 })
 
@@ -391,9 +468,22 @@ app.post('/api/transcribe', transcribeLimiter, upload.single('audio_file'), asyn
 // server wraps it as WAV before sending it to the browser. On a TTS
 // failure the script is still returned, so the frontend can show the text
 // guidance instead of breaking.
-app.post('/api/guidance', guidanceLimiter, async (req, res) => {
-  const analysis = req.body?.analysis
+// Phase A: the analysis is NEVER taken from the client. The client sends
+// only the request_id of a transcribe the server performed, and the
+// analysis is looked up from the receipt store — a forged, missing or
+// expired id is rejected, so arbitrary unverified analysis can never
+// trigger a TTS call.
+app.post('/api/guidance', requireAiEnabled, aiLimiter, async (req, res) => {
   const voiceKey = req.body?.voice === 'nalini' ? 'nalini' : 'poorvi'
+
+  const analysis = getAnalysisReceipt(req.body?.request_id)
+  if (!analysis) {
+    console.log('[guidance] fail status=400 invalid_request')
+    return res.status(400).json({
+      error: 'INVALID_REQUEST',
+      message: 'Pehle call analyze karo, phir guidance mango.',
+    })
+  }
 
   let guidance
   try {
@@ -412,6 +502,19 @@ app.post('/api/guidance', guidanceLimiter, async (req, res) => {
     return res.status(503).json({
       error: 'GNANI_KEY_NOT_CONFIGURED',
       message: 'Gnani key not set — server par key configure karo, phir dobara try karo.',
+      script: guidance.script,
+      voice: guidance.voice,
+      model: guidance.model,
+      language: guidance.language,
+    })
+  }
+
+  // Concurrency cap (Phase A) — same 2-slot pool as /api/transcribe.
+  if (!tryAcquireGnaniSlot()) {
+    console.log('[guidance] fail status=503 server_busy')
+    return res.status(503).json({
+      error: 'SERVER_BUSY',
+      message: 'Server busy hai — thoda rukkar dobara try karo.',
       script: guidance.script,
       voice: guidance.voice,
       model: guidance.model,
@@ -519,6 +622,8 @@ app.post('/api/guidance', guidanceLimiter, async (req, res) => {
       model: guidance.model,
       language: guidance.language,
     })
+  } finally {
+    releaseGnaniSlot()
   }
 })
 
@@ -577,6 +682,7 @@ const server = app.listen(PORT, HOST, async () => {
   console.log(`CallSuraksha server listening on http://${HOST}:${PORT}`)
   const keySource = await getKeySource()
   console.log(`Gnani key configured: ${keySource !== 'none'} (source: ${keySource})`)
+  console.log(`AI enabled: ${isAiEnabled()} (AI_ENABLED=${process.env.AI_ENABLED ?? 'not set'})`)
   if (serveFrontend) console.log(`Serving frontend from ${DIST_DIR} (single-service mode)`)
 })
 // A hung client must not hold a connection forever; 60 s covers the

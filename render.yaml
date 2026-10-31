@@ -41,6 +41,12 @@ services:
       # service; the app returns 503 GNANI_KEY_NOT_CONFIGURED until then.
       - key: GNANI_API_KEY
         sync: false
+      # Emergency switch (Phase A): only the exact value `true` enables
+      # the paid AI endpoints. Missing/invalid blocks them with 503.
+      # Flip to `false` in the dashboard to stop all Gnani calls
+      # instantly (service restarts); demo audio players keep working.
+      - key: AI_ENABLED
+        value: 'true'
       # Optional staging gate (leave unset for a public demo URL):
       # - key: STAGING_USER
       #   sync: false

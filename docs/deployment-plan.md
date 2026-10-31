@@ -93,9 +93,17 @@ before launch.
 | `GNANI_API_KEY` | (production key from app.gnani.ai) | **REQUIRED.** Secret. Without it the API returns 503 `GNANI_KEY_NOT_CONFIGURED` and the frontend shows the honest "key not set" state. |
 | `NODE_ENV` | `production` | Turns on single-service frontend serving + SPA fallback. Render defaults to production for Node, set it explicitly anyway. |
 | `HOST` | `0.0.0.0` | So the host health check can reach the service. |
+| `AI_ENABLED` | `true` | **REQUIRED since Phase A.** Only the exact value `true` enables the paid AI endpoints. Missing, empty or anything else blocks `/api/transcribe` + `/api/guidance` with 503 `AI_DISABLED` (fails closed). Emergency switch: set to `false` in the dashboard to stop all Gnani calls instantly — the service restarts, demo audio players keep working, only live analysis stops. |
 | `STAGING_USER` + `STAGING_PASS` | (optional, strong random) | Set BOTH to password-protect the staging URL with HTTP basic auth (`/api/health` stays open for the health check). Leave unset for a public demo URL. |
 | `ALLOWED_ORIGINS` | (leave empty) | Only for a split deployment (frontend on another origin). Same-origin needs none. |
 | `PORT` | (do not set) | Render sets it automatically. |
+
+### Phase A security (since 31 Oct 2026)
+- **Combined rate limit:** 10 expensive AI requests per 15 minutes per IP, counted ACROSS `/api/transcribe` + `/api/guidance` together (one shared limiter). 11th request → 429 `RATE_LIMITED`.
+- **Concurrency cap:** at most 2 Gnani calls at once (transcribe + guidance combined); a third caller gets 503 `SERVER_BUSY`.
+- **Guidance binding:** `/api/guidance` takes only `{request_id, voice}`; the analysis comes from the server's receipt store (a real transcribe, 10-min TTL). Forged/missing ids → 400 `INVALID_REQUEST`; client-sent analysis objects are never trusted.
+- **Server-side audio validation:** format + 5 MB size + WAV duration (RIFF header, max 30 s) checked before any Gnani call; over-long WAV → 400 `AUDIO_TOO_LONG`.
+- **Emergency switch:** see `AI_ENABLED` above. Check the Gnani dashboard balance twice a week (no balance API exists); if credits drop unexpectedly, set `AI_ENABLED=false` and tell Muse.
 
 ## 5. API routing (single service)
 
@@ -104,8 +112,8 @@ before launch.
 | `GET /` and any non-`/api` GET (`/demo`, `/results`, …) | `dist/index.html` (SPA fallback; direct loads + refreshes work) |
 | `GET /assets/*`, `/samples/*`, `/compare/*`, `/favicon.svg`, `/icons.svg` | `express.static(dist/)` (ETag revalidation, no long cache) |
 | `GET /api/health` | Express — `{status, gnaniKeyConfigured, keySource}` |
-| `POST /api/transcribe` | Express → Prisma v3.0 + risk engine (rate-limited 20/15 min/IP) |
-| `POST /api/guidance` | Express → Timbre v2.5 → WAV base64 (rate-limited 20/15 min/IP) |
+| `POST /api/transcribe` | Express → Prisma v3.0 + risk engine (AI_ENABLED gate + combined limit 10/15 min/IP + max 2 concurrent + WAV duration check) |
+| `POST /api/guidance` | Express → Timbre v2.5 → WAV base64 (AI_ENABLED gate + combined limit 10/15 min/IP + max 2 concurrent; needs a valid transcribe `request_id`) |
 | Unknown `/api/*` | JSON 404 `{error: NOT_FOUND}` |
 
 ## 6. Audio asset packaging (critical)

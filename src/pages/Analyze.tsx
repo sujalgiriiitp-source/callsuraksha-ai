@@ -24,6 +24,12 @@ import {
 import { GlowCard } from '../components/GlowCard'
 import { clearLastAnalysis, setLastAnalysis, type AnalysisResult } from '../lib/analysis'
 import { MVP_MAX_DURATION_SECONDS, MVP_MAX_FILE_MB } from '../lib/gnani'
+import {
+  acceptedExtensionForMime,
+  convertRecordingToWav,
+  pickRecordingMimeType,
+  TARGET_SAMPLE_RATE,
+} from '../lib/audio-convert'
 
 const MAX_BYTES = MVP_MAX_FILE_MB * 1024 * 1024
 
@@ -225,6 +231,8 @@ export function Analyze() {
   const [recSeconds, setRecSeconds] = useState(0)
   const [micError, setMicError] = useState<string | null>(null)
   const [recordingFormat, setRecordingFormat] = useState<string | null>(null)
+  const [isConverting, setIsConverting] = useState(false)
+  const [conversionNote, setConversionNote] = useState<string | null>(null)
 
   const [tab, setTab] = useState<TabValue>('upload')
   const [focusRisk, setFocusRisk] = useState(true)
@@ -241,6 +249,10 @@ export function Analyze() {
   // unmount, because the Results page plays from it.
   const keepUrlRef = useRef(false)
   const recSecondsRef = useRef(0)
+  // Guards the async conversion: every new conversion run gets an id, and
+  // clearSelected() bumps it — so a conversion that finishes AFTER the
+  // user discarded/re-recorded never resurrects a stale selection.
+  const conversionRunRef = useRef(0)
 
   useEffect(() => {
     return () => {
@@ -259,11 +271,13 @@ export function Analyze() {
   }
 
   function clearSelected() {
+    conversionRunRef.current += 1
     if (selectedUrlRef.current) URL.revokeObjectURL(selectedUrlRef.current)
     selectedUrlRef.current = null
     setSelected(null)
     setTranscribeError(null)
     setRecordingFormat(null)
+    setConversionNote(null)
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
@@ -440,7 +454,11 @@ export function Analyze() {
     chunksRef.current = []
     let recorder: MediaRecorder
     try {
-      recorder = new MediaRecorder(stream)
+      // Best supported format: webm/opus on Chrome/Edge/Firefox, mp4 on
+      // Safari. The raw recording is converted to 16 kHz WAV on stop
+      // (finishRecordingSelection) unless the format is already accepted.
+      const mimeType = pickRecordingMimeType()
+      recorder = mimeType ? new MediaRecorder(stream, { mimeType }) : new MediaRecorder(stream)
     } catch {
       stream.getTracks().forEach((t) => t.stop())
       setMicError('Is browser me mic recording start nahi ho payi. File upload karo.')
@@ -455,24 +473,9 @@ export function Analyze() {
       stopTimer()
       stream.getTracks().forEach((t) => t.stop())
       streamRef.current = null
-      const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' })
-      const secs = recSecondsRef.current
-      const url = URL.createObjectURL(blob)
-      clearSelected()
-      selectedUrlRef.current = url
-      setSelected({
-        name: `Mic recording (${formatDuration(secs)})`,
-        fileName: 'recording.webm',
-        blob,
-        size: blob.size,
-        format: (recorder.mimeType || 'webm').split(';')[0].split('/')[1]?.toUpperCase() || 'WEBM',
-        durationSeconds: secs,
-        durationUnknown: false,
-        url,
-        source: 'recording',
-        mime: blob.type,
-      })
       setIsRecording(false)
+      const rawBlob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' })
+      void finishRecordingSelection(rawBlob, recorder.mimeType || '')
     }
     recorder.onerror = () => {
       stopTimer()
@@ -494,6 +497,115 @@ export function Analyze() {
 
   function stopRecording() {
     finishRecording()
+  }
+
+  /**
+   * Phase B: turn a raw MediaRecorder blob into the file that gets
+   * uploaded. Two paths, both honest about what the user will hear:
+   *  - The recorded format is ALREADY accepted by Prisma (Safari mp4 ->
+   *    m4a): use the raw file directly, no conversion.
+   *  - Anything else (Chrome/Edge webm/opus): decode + resample to
+   *    16 kHz mono + encode PCM16 WAV in the browser. The preview plays
+   *    the CONVERTED wav — what you hear is exactly what gets analyzed.
+   * On any failure nothing is selected: the user re-records or uploads
+   * a file. Nothing is ever uploaded from here — Analyze dabane par hi
+   * upload hota hai (consent ke saath).
+   */
+  async function finishRecordingSelection(rawBlob: Blob, rawMime: string) {
+    const runId = ++conversionRunRef.current
+    if (rawBlob.size === 0) {
+      setMicError('Recording khaali hai — koi audio capture nahi hua. Dobara try karo.')
+      return
+    }
+    const directExt = acceptedExtensionForMime(rawMime)
+    if (directExt) {
+      const url = URL.createObjectURL(rawBlob)
+      const duration = await measureDuration(rawBlob, url)
+      if (runId !== conversionRunRef.current) {
+        URL.revokeObjectURL(url)
+        return
+      }
+      if (duration !== null && duration > MVP_MAX_DURATION_SECONDS) {
+        URL.revokeObjectURL(url)
+        setMicError(
+          `Recording bahut lambi hai: ${formatDuration(duration)} — limit max ${MVP_MAX_DURATION_SECONDS} seconds hai. Dobara chhoti recording karo.`,
+        )
+        return
+      }
+      if (rawBlob.size > MAX_BYTES) {
+        URL.revokeObjectURL(url)
+        setMicError(`Recording bahut badi hai: ${formatSize(rawBlob.size)} — limit max ${MVP_MAX_FILE_MB} MB hai.`)
+        return
+      }
+      clearSelected()
+      selectedUrlRef.current = url
+      setRecordingFormat(`${directExt.toUpperCase()} (direct — pehle se supported)`)
+      setConversionNote(
+        `Direct use — ${directExt.toUpperCase()} format pehle se supported hai, conversion ki zaroorat nahi padi.`,
+      )
+      setSelected({
+        name: `Mic recording (${formatDuration(duration ?? recSecondsRef.current)})`,
+        fileName: `recording.${directExt}`,
+        blob: rawBlob,
+        size: rawBlob.size,
+        format: directExt.toUpperCase(),
+        durationSeconds: duration,
+        durationUnknown: duration === null,
+        url,
+        source: 'recording',
+        mime: rawBlob.type,
+      })
+      return
+    }
+    setIsConverting(true)
+    setConversionNote(null)
+    try {
+      const converted = await convertRecordingToWav(rawBlob)
+      if (runId !== conversionRunRef.current) return
+      if (converted.durationSeconds > MVP_MAX_DURATION_SECONDS) {
+        setMicError(
+          `Recording bahut lambi hai: ${formatDuration(converted.durationSeconds)} — limit max ${MVP_MAX_DURATION_SECONDS} seconds hai. Dobara chhoti recording karo.`,
+        )
+        return
+      }
+      if (converted.wavBlob.size > MAX_BYTES) {
+        setMicError(
+          `Converted audio bahut bada hai: ${formatSize(converted.wavBlob.size)} — limit max ${MVP_MAX_FILE_MB} MB hai.`,
+        )
+        return
+      }
+      const url = URL.createObjectURL(converted.wavBlob)
+      clearSelected()
+      selectedUrlRef.current = url
+      setRecordingFormat(`WAV (converted) — ${TARGET_SAMPLE_RATE / 1000} kHz mono`)
+      setConversionNote(
+        `Converted: ${(rawMime.split(';')[0] || 'webm').replace('audio/', '')} → ${TARGET_SAMPLE_RATE / 1000} kHz mono WAV (${formatDuration(converted.durationSeconds)}). Jo preview sun rahe ho, wahi upload hoga.`,
+      )
+      setSelected({
+        name: `Mic recording (${formatDuration(converted.durationSeconds)})`,
+        fileName: 'recording.wav',
+        blob: converted.wavBlob,
+        size: converted.wavBlob.size,
+        format: 'WAV',
+        durationSeconds: converted.durationSeconds,
+        durationUnknown: false,
+        url,
+        source: 'recording',
+        mime: 'audio/wav',
+      })
+    } catch (err) {
+      if (runId !== conversionRunRef.current) return
+      setMicError(
+        err instanceof Error
+          ? err.message
+          : 'Conversion fail hui — dobara record karo ya file upload karo.',
+      )
+    } finally {
+      // Always clear the flag: only one conversion runs at a time, and
+      // the run-guard above protects the SELECTION, not this flag. If
+      // the user discarded mid-conversion, the flag must still clear.
+      setIsConverting(false)
+    }
   }
 
   const durationOk =
@@ -673,7 +785,8 @@ export function Analyze() {
                   <button
                     type="button"
                     onClick={() => void startRecording()}
-                    className="inline-flex items-center gap-2 rounded-xl bg-[#8B5CF6] px-5 py-2.5 text-sm font-semibold text-white"
+                    disabled={isConverting}
+                    className="inline-flex items-center gap-2 rounded-xl bg-[#8B5CF6] px-5 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Mic className="h-4 w-4" aria-hidden /> Start recording
                   </button>
@@ -696,11 +809,27 @@ export function Analyze() {
                   </span>
                 )}
               </div>
+              {isConverting && (
+                <p
+                  className="mt-3 flex items-center gap-2 text-sm text-[#94A3B8]"
+                  role="status"
+                  aria-live="polite"
+                  data-testid="recording-convert-status"
+                >
+                  <Loader2 className="h-4 w-4 animate-spin text-[#8B5CF6]" aria-hidden />
+                  Converting ho raha hai… webm → 16 kHz mono WAV. Kuch seconds lagenge.
+                </p>
+              )}
+              {conversionNote && !isConverting && (
+                <p className="mt-3 text-sm text-[#11CFA8]" data-testid="recording-convert-note">
+                  {conversionNote}
+                </p>
+              )}
               <p className="mt-3 text-sm text-[#94A3B8]">
                 Recording format: {recordingFormat ?? 'abhi koi recording nahi hai'}. Mic recordings
-                aam taur par webm/opus me banti hain — Prisma sirf WAV/MP3/OGG/FLAC/AAC/M4A accept
-                karta hai, isliye mic recording server par reject ho sakti hai; format conversion
-                abhi pending hai.
+                aam taur par webm/opus me banti hain — ye browser me hi 16 kHz mono WAV me convert
+                ho jati hain, phir Prisma ko bheji jati hain. Jo preview sun rahe ho, wahi analyze
+                hoga.
               </p>
               {selected?.source === 'recording' && !isRecording && (
                 <div className="mt-4">
@@ -922,7 +1051,7 @@ export function Analyze() {
             </ul>
             <button
               type="button"
-              disabled={!readyToAnalyze || isAnalyzing}
+              disabled={!readyToAnalyze || isAnalyzing || isConverting}
               onClick={() => void handleAnalyze()}
               className="bg-gradient-brand mt-6 flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 font-semibold text-white disabled:cursor-not-allowed disabled:opacity-40"
             >

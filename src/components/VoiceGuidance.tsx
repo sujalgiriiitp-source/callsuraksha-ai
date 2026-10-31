@@ -8,6 +8,10 @@
  * Nalini). If TTS fails, the card does NOT break the dashboard — it shows
  * the text guidance (the server-returned script, or the safe steps) with a
  * retry button.
+ * Phase A: the component sends only the transcribe `request_id` — the
+ * server looks the analysis up from its own receipt store and never
+ * trusts a client-sent analysis object. The `analysis` prop is kept
+ * only for the local text fallback (safe steps) when audio fails.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { AudioLines, Download, Pause, Play, Quote, RotateCcw, Volume2, VolumeX } from 'lucide-react'
@@ -23,14 +27,14 @@ type GuidanceState =
 
 const SPEEDS = [1, 1.25, 0.75] as const
 
-// Session cache for generated guidance audio. The script is built from the
-// risk band + top categories only, so the same band+categories+voice always
+// Session cache for generated guidance audio. The script is built from
+// the analysis of one transcribe, so the same request_id+voice always
 // produces the same script — re-fetching it on every /results visit would
-// burn a Gnani TTS call for identical audio. The cache is keyed by exactly
-// what determines the script, holds at most 4 bands x 2 voices, lives in
-// browser memory for the session only (refresh clears it), and the blob
-// URLs are revoked only when a cached entry is replaced — never on
-// unmount, because the same URL may be shown again.
+// burn a Gnani TTS call for identical audio. The cache is keyed by
+// request_id + voice, holds at most a few entries, lives in browser
+// memory for the session only (refresh clears it), and the blob URLs are
+// revoked only when a cached entry is replaced — never on unmount,
+// because the same URL may be shown again.
 type CachedGuidance = { script: string; audioUrl: string; duration: number }
 const guidanceCache = new Map<string, CachedGuidance>()
 
@@ -41,12 +45,18 @@ function formatTime(seconds: number) {
   return `${m}:${s.toString().padStart(2, '0')}`
 }
 
-export function VoiceGuidance({ analysis }: { analysis: RiskAnalysis }) {
+export function VoiceGuidance({
+  analysis,
+  transcribeRequestId,
+}: {
+  analysis: RiskAnalysis
+  transcribeRequestId: string | null
+}) {
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const requestId = useRef(0)
   // In-flight dedup: React StrictMode (dev) mounts the effect twice, which
   // would fire two identical Timbre calls — and Gnani rate-limits the
-  // second one (429). Identical voice+analysis requests share one fetch.
+  // second one (429). Identical request_id+voice requests share one fetch.
   const inflight = useRef<{ key: string; promise: Promise<{ ok: boolean; data: any }> } | null>(null)
   const [voice, setVoice] = useState<VoiceKey>('poorvi')
   const [state, setState] = useState<GuidanceState>({ status: 'loading' })
@@ -60,7 +70,7 @@ export function VoiceGuidance({ analysis }: { analysis: RiskAnalysis }) {
     setState({ status: 'loading' })
     setIsPlaying(false)
     setCurrentTime(0)
-    const key = `${voiceKey}:${analysis.riskBand}:${(analysis.highlights ?? []).map((h) => h.category).join(',')}`
+    const key = `${transcribeRequestId ?? 'none'}:${voiceKey}`
     // Session cache first — identical script, no new TTS call.
     const hit = guidanceCache.get(key)
     if (hit) {
@@ -74,7 +84,7 @@ export function VoiceGuidance({ analysis }: { analysis: RiskAnalysis }) {
         const promise = fetch('/api/guidance', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ analysis, voice: voiceKey }),
+          body: JSON.stringify({ request_id: transcribeRequestId, voice: voiceKey }),
         }).then(async (res) => ({ ok: res.ok, data: await res.json() }))
         entry = { key, promise }
         inflight.current = entry
@@ -121,7 +131,7 @@ export function VoiceGuidance({ analysis }: { analysis: RiskAnalysis }) {
         message: 'Network error — voice guidance nahi ban payi.',
       })
     }
-  }, [analysis])
+  }, [transcribeRequestId])
 
   useEffect(() => {
     fetchGuidance(voice)

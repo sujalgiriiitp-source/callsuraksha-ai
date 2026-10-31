@@ -480,7 +480,7 @@ export function Results() {
 
         {/* Right column: voice guidance (Phase 7, real Timbre) + safe actions (desktop cols 9–12) */}
         <div className="order-3 space-y-6 lg:order-none lg:col-span-4 lg:col-start-9 lg:row-start-1">
-          <VoiceGuidance analysis={analysis} />
+          <VoiceGuidance analysis={analysis} transcribeRequestId={result.request_id} />
 
           <GlowCard className="border-[#11CFA8]/30">
             <h2 className="font-display flex items-center gap-2 text-lg font-semibold">

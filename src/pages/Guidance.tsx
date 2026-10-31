@@ -80,7 +80,7 @@ export function Guidance() {
               File: {last.fileName} · Risk band: {last.result.analysis.riskBand}
             </p>
             <div className="mt-6">
-              <VoiceGuidance analysis={last.result.analysis} />
+              <VoiceGuidance analysis={last.result.analysis} transcribeRequestId={last.result.request_id} />
             </div>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link

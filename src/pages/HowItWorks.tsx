@@ -221,7 +221,7 @@ export function HowItWorks() {
           </div>
           <div className="mt-5">
             {last ? (
-              <VoiceGuidance analysis={last.result.analysis} />
+              <VoiceGuidance analysis={last.result.analysis} transcribeRequestId={last.result.request_id} />
             ) : (
               <p className="text-sm leading-relaxed text-[#94A3B8]">
                 Voice guidance aapki call ke risk analysis se banti hai. Pehle koi call analyze
