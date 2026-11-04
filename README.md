@@ -164,17 +164,16 @@ One service, one origin. The Express backend serves the built React app
 
 ```mermaid
 flowchart TB
-    User["User (browser)"] --> FE["React + TypeScript SPA\n(Vite build, served from dist/)"]
-    FE -->|multipart audio_file| BE["Express backend\n(server/index.js)"]
-    BE -->|validate: 5 MB · 30 s · language/model| BE
-    BE -->|X-API-Key-ID (server-side only)| Prisma["Gnani Prisma STT v3.0\napi.vachana.ai/stt/v3"]
-    Prisma -->|transcript + detected language| BE
-    BE --> Risk["Risk engine\n(server/risk-engine.js)\n8 categories · negation-aware"]
-    Risk -->|band + indicators + evidence| FE
-    FE -->|{request_id, voice}| BE
-    BE -->|receipt-bound lookup| Timbre["Gnani Timbre TTS v2.5\nraw 24 kHz PCM → WAV"]
-    Timbre -->|spoken Hindi guidance| FE
-    BE -.->|rate limit 10/15 min/IP · max 2 concurrent · AI_ENABLED gate| Guard["Security middleware"]
+    User["User<br/>(browser)"] --> FE["React Frontend<br/>TypeScript + Vite"]
+    FE --> BE["Express Backend<br/>Node.js"]
+    BE --> VAL["Audio Validation<br/>5 MB max, 30 s max"]
+    VAL --> Prisma["Gnani Prisma STT v3.0<br/>Speech to text"]
+    Prisma --> Risk["Risk Engine<br/>8 categories, negation aware"]
+    Risk --> Dash["Results Dashboard<br/>Risk band and indicators"]
+    Dash --> Guide["Guidance Request<br/>Receipt-bound lookup"]
+    Guide --> Timbre["Gnani Timbre TTS v2.5<br/>Spoken Hindi guidance"]
+    Timbre --> Dash
+    BE -.-> Sec["Security<br/>API key server side only<br/>Rate limit 10 per 15 min<br/>Max 2 concurrent calls<br/>AI enabled gate"]
 ```
 
 **Request flow:** upload/record → server validation → Prisma transcription →
