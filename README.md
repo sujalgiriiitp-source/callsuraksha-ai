@@ -1,6 +1,6 @@
 <div align="center">
 
-![CallSuraksha AI — Call Suno, Risk Samjho.](docs/assets/hero-banner.png)
+![CallSuraksha AI — Call Suno, Risk Samjho.](docs/hero-banner.png)
 
 # CallSuraksha AI
 
@@ -114,19 +114,19 @@ The navigation also shows an in-development Call Simulator, which is not yet dep
 
 ### Home
 
-![CallSuraksha AI home page — hero, live status, feature cards](docs/assets/homepage.png)
+![CallSuraksha AI home page — hero, live status, feature cards](docs/homepage.png)
 
 ### Analyze a call
 
-![Analyze page — upload, record, language select and consent](docs/assets/analyze.png)
+![Analyze page — upload, record, language select and consent](docs/analyze.png)
 
 ### Demo samples
 
-![Demo samples page — six synthetic calls](docs/assets/demo-samples.png)
+![Demo samples page — six synthetic calls](docs/demo-samples.png)
 
 ### Results — HIGH RISK (real analysis)
 
-![Results dashboard — High Risk, real Prisma transcript, request ID and Timbre guidance](docs/assets/results-high-risk.png)
+![Results dashboard — High Risk, real Prisma transcript, request ID and Timbre guidance](docs/results-high-risk.png)
 
 *Real run: Bank OTP sample, Prisma v3.0, detected `hi-IN`, High Risk —
 OTP demand + account-block threat. Transcript:
@@ -135,11 +135,11 @@ OTP demand + account-block threat. Transcript:
 
 ### Hindi voice guidance
 
-![Timbre voice guidance player — Poorvi, Hinglish, with Hindi safety script](docs/assets/voice-guidance.png)
+![Timbre voice guidance player — Poorvi, Hinglish, with Hindi safety script](docs/voice-guidance.png)
 
 ### Clean vs noisy comparison
 
-![Clean vs noisy comparison page](docs/assets/compare.png)
+![Clean vs noisy comparison page](docs/compare.png)
 
 ---
 
