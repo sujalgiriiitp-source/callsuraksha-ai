@@ -4,8 +4,8 @@
  * Fetches real Gnani Timbre audio for the actual risk analysis from
  * POST /api/guidance (server builds the script from the analysis, calls
  * Timbre, wraps the raw PCM as WAV). Controls: play / pause / resume
- * / restart / download / speed / voice switch (Hinglish Shivani or Hindi
- * Nalini). If TTS fails, the card does NOT break the dashboard — it shows
+ * / restart / download / speed / voice switch (Hinglish Avinash or Hindi
+ * Avinash). If TTS fails, the card does NOT break the dashboard — it shows
  * the text guidance (the server-returned script, or the safe steps) with a
  * retry button.
  * Phase A: the component sends only the transcribe `request_id` — the
@@ -18,7 +18,7 @@ import { AudioLines, Download, Pause, Play, Quote, RotateCcw, Volume2, VolumeX }
 import type { RiskAnalysis } from '../lib/analysis'
 import { GlowCard } from './GlowCard'
 
-type VoiceKey = 'shivani' | 'nalini'
+type VoiceKey = 'hinglish' | 'hindi'
 
 type GuidanceState =
   | { status: 'loading' }
@@ -58,7 +58,7 @@ export function VoiceGuidance({
   // would fire two identical Timbre calls — and Gnani rate-limits the
   // second one (429). Identical request_id+voice requests share one fetch.
   const inflight = useRef<{ key: string; promise: Promise<{ ok: boolean; data: any }> } | null>(null)
-  const [voice, setVoice] = useState<VoiceKey>('shivani')
+  const [voice, setVoice] = useState<VoiceKey>('hinglish')
   const [state, setState] = useState<GuidanceState>({ status: 'loading' })
   const [isPlaying, setIsPlaying] = useState(false)
   const [currentTime, setCurrentTime] = useState(0)
@@ -196,7 +196,7 @@ export function VoiceGuidance({
           force the card wider than the viewport (Phase 6: HowItWorks
           overflow at 320/375px). */}
       <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Guidance voice">
-        {(['shivani', 'nalini'] as const).map((key) => (
+        {(['hinglish', 'hindi'] as const).map((key) => (
           <button
             key={key}
             type="button"
@@ -209,7 +209,7 @@ export function VoiceGuidance({
                 : 'border border-white/15 text-[#94A3B8] hover:border-[#8B5CF6]/60 hover:text-white'
             }`}
           >
-            {key === 'shivani' ? 'Hinglish · Shivani' : 'Hindi · Shivani'}
+            {key === 'hinglish' ? 'Hinglish · Avinash' : 'Hindi · Avinash'}
           </button>
         ))}
       </div>

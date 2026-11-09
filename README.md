@@ -90,7 +90,7 @@ no black box.
 | 03 | **Explainable risk intelligence** | Deterministic, rule-based engine — 8 categories, sentence-level, negation-aware |
 | 04 | **Risk classification** | Low / Medium / High / **Unable to Assess** — a risk flag, never a fraud verdict |
 | 05 | **Evidence-based results** | Transcript highlights you can click to see the matching indicator card |
-| 06 | **Gnani Timbre voice guidance** | Spoken Hindi safety guidance (Shivani for Hinglish and Hindi), with play / pause / speed / voice switch / download |
+| 06 | **Gnani Timbre voice guidance** | Spoken Hindi safety guidance (Avinash for Hinglish and Hindi), with play / pause / speed / voice switch / download |
 | 07 | **Audio upload & recording** | Drag-and-drop upload or in-browser mic recording (30 s auto-stop, preview, re-record) |
 | 08 | **Interactive demonstrations** | 6 synthetic sample calls with verified risk bands (3 High, 1 Medium, 2 Low) |
 | 09 | **Clean vs noisy comparison** | Same call, clean vs 12.01 dB SNR noise — measured WER 4.3%, CER 3.6%, key-phrase recall 2/3 |
@@ -193,7 +193,7 @@ and refreshing the page clears the result.
 | **4. Risk engine analyses** | A deterministic rule engine scans each sentence for 8 suspicious-pattern categories, with negation handling (a genuine safety warning such as “OTP kisi ko mat batana” is not flagged as a scam). |
 | **5. See the evidence** | A risk band (Low / Medium / High / Unable to Assess) plus indicator cards — each with the exact sentence, reason and precaution. |
 | **6. Get safe steps** | A short checklist: never share OTP/PIN/CVV, call the bank yourself on its official number, report on 1930. |
-| **7. Hear it in Hindi** | Gnani Timbre speaks the guidance (Shivani, Hinglish or Hindi). |
+| **7. Hear it in Hindi** | Gnani Timbre speaks the guidance (Avinash, Hinglish or Hindi). |
 
 **Three different jobs, three different components:**
 *Speech recognition* (Prisma) turns audio into text. *Risk analysis*
@@ -365,7 +365,7 @@ Error codes: `400 NO_FILE` · `400 FILE_TOO_LARGE` · `400 AUDIO_TOO_LONG` ·
 
 ### `POST /api/guidance`
 
-JSON body — `{ "request_id": "<id from /api/transcribe>", "voice": "shivani" | "nalini" }`.
+JSON body — `{ "request_id": "<id from /api/transcribe>", "voice": "hinglish" | "hindi" }`.
 Returns a WAV file (Timbre v2.5 output, raw 24 kHz PCM wrapped server-side).
 The `request_id` must match a real analysis from the last 10 minutes;
 anything else returns `400 INVALID_REQUEST`. Client-sent analysis text is

@@ -70,7 +70,7 @@ const STEPS = [
     color: '#F3345E',
     title: 'Voice Guidance',
     text: 'Listen to AI-generated safety guidance in Hindi to understand the risks and what to do next.',
-    badge: 'Gnani Timbre v3.0 · Shivani (Hinglish + Hindi)',
+    badge: 'Gnani Timbre v3.0 · Avinash (Hinglish + Hindi)',
   },
 ]
 

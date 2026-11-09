@@ -6,11 +6,11 @@
  * is invented. It never claims fraud: the wording is always "risk lag rahi
  * hai / signals mile hain", never "ye fraud hai / scam hai".
  *
- * Two voices, both Shivani on Timbre v3.0 (verified working):
- *   shivani — Hinglish script (hi-en), Roman text
- *   nalini — Hindi script (hi-IN), Devanagari text
- * (The 'nalini' key is the Hindi-script slot; the voice behind it is
- * Shivani too — Sujal asked for one girl's voice everywhere, 9 Nov.)
+ * Two voices, both Avinash on Timbre v3.0 (verified working):
+ *   hinglish — Hinglish script (hi-en), Roman text
+ *   hindi — Hindi script (hi-IN), Devanagari text
+ * (Sujal picked Avinash after hearing it in the Gnani playground, 9 Nov.
+ * Before this: Shivani for both (9 Nov evening), Poorvi + Nalini before.)
  *
  * The script is deliberately SHORT (opening + the two most important
  * precautions). Timbre speaks slowly (~2 words/sec), so the full
@@ -22,8 +22,8 @@
  */
 
 export const GUIDANCE_VOICES = {
-  shivani: { voice: 'Shivani', model: 'timbre-v3.0', language: 'hi-en', label: 'Hinglish · Shivani' },
-  nalini: { voice: 'Shivani', model: 'timbre-v3.0', language: 'hi-IN', label: 'Hindi · Shivani' },
+  hinglish: { voice: 'Avinash', model: 'timbre-v3.0', language: 'hi-en', label: 'Hinglish · Avinash' },
+  hindi: { voice: 'Avinash', model: 'timbre-v3.0', language: 'hi-IN', label: 'Hindi · Avinash' },
 }
 
 export const VALID_BANDS = ['Low', 'Medium', 'High', 'Unable to Assess']
@@ -94,7 +94,7 @@ function joinLabels(labels, connector = 'aur') {
  * Returns { script, voice, model, language, label }.
  * Throws on an invalid analysis so the endpoint can answer 400.
  */
-export function buildGuidanceScript(analysis, voiceKey = 'shivani') {
+export function buildGuidanceScript(analysis, voiceKey = 'hinglish') {
   const voiceConfig = GUIDANCE_VOICES[voiceKey]
   if (!voiceConfig) throw new Error(`Unknown voice: ${voiceKey}`)
   if (!analysis || typeof analysis !== 'object') throw new Error('Analysis missing')
@@ -104,7 +104,7 @@ export function buildGuidanceScript(analysis, voiceKey = 'shivani') {
   if (safeSteps.length === 0) throw new Error('Safe steps missing')
 
   const band = analysis.riskBand
-  if (voiceKey === 'nalini') {
+  if (voiceKey === 'hindi') {
     const labels = topCategories(analysis, CATEGORY_LABELS_HINDI)
     const steps = SPOKEN_STEPS_HINDI
     let opening
@@ -120,7 +120,7 @@ export function buildGuidanceScript(analysis, voiceKey = 'shivani') {
     return { script: `${opening} ${steps}`, ...voiceConfig }
   }
 
-  // Hinglish (Shivani, hi-en) — default.
+  // Hinglish (Avinash, hi-en) — default.
   const labels = topCategories(analysis, CATEGORY_LABELS_HINGLISH)
   const steps = SPOKEN_STEPS_HINGLISH
   let opening

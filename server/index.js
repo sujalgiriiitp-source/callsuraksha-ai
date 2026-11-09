@@ -474,7 +474,7 @@ app.post('/api/transcribe', requireAiEnabled, aiLimiter, upload.single('audio_fi
 // expired id is rejected, so arbitrary unverified analysis can never
 // trigger a TTS call.
 app.post('/api/guidance', requireAiEnabled, aiLimiter, async (req, res) => {
-  const voiceKey = req.body?.voice === 'nalini' ? 'nalini' : 'shivani'
+  const voiceKey = req.body?.voice === 'hindi' ? 'hindi' : 'hinglish'
 
   const analysis = getAnalysisReceipt(req.body?.request_id)
   if (!analysis) {

@@ -306,7 +306,7 @@ try {
         noId.status === 400 && noId.data?.error === 'INVALID_REQUEST',
         `got ${noId.status} ${noId.data?.error ?? ''}`,
       )
-      const forged = await postGuidance(base, { request_id: 'forged-id-12345', voice: 'shivani' })
+      const forged = await postGuidance(base, { request_id: 'forged-id-12345', voice: 'hinglish' })
       check(
         'guidance forged request_id -> 400 INVALID_REQUEST',
         forged.status === 400 && forged.data?.error === 'INVALID_REQUEST',
@@ -314,7 +314,7 @@ try {
       )
       const oldFormat = await postGuidance(base, {
         analysis: { riskBand: 'High', highlights: [{ category: 'OTP_DEMAND' }], safeSteps: ['x'] },
-        voice: 'shivani',
+        voice: 'hinglish',
       })
       check(
         'guidance purana format (client analysis) -> 400, analysis ignore hoti hai',
@@ -324,9 +324,9 @@ try {
 
       // Real TTS via the receipt (1 real Timbre call), then voice switch
       // on the SAME receipt (2nd real Timbre call) — receipt multi-use hai.
-      const g1 = await postGuidance(base, { request_id: requestId, voice: 'shivani' })
+      const g1 = await postGuidance(base, { request_id: requestId, voice: 'hinglish' })
       check(
-        'guidance valid request_id (Shivani) -> 200 real WAV audio',
+        'guidance valid request_id (Avinash) -> 200 real WAV audio',
         g1.status === 200 && typeof g1.data?.audioBase64 === 'string' && g1.data.audioBase64.length > 0,
         `got ${g1.status}`,
       )
@@ -338,9 +338,9 @@ try {
         )
         check('guidance duration > 0 s', typeof g1.data.durationSeconds === 'number' && g1.data.durationSeconds > 0)
       }
-      const g2 = await postGuidance(base, { request_id: requestId, voice: 'nalini' })
+      const g2 = await postGuidance(base, { request_id: requestId, voice: 'hindi' })
       check(
-        'voice switch (Nalini) same request_id se -> 200 (receipt multi-use)',
+        'voice switch (Hindi) same request_id se -> 200 (receipt multi-use)',
         g2.status === 200 && typeof g2.data?.audioBase64 === 'string',
         `got ${g2.status} ${g2.data?.error ?? ''}`,
       )

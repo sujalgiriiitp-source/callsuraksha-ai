@@ -50,7 +50,7 @@ const HIGH_ANALYSIS = analysisFor('High', [
 
 // --- 1. Guidance scripts ---------------------------------------------------
 for (const band of ['High', 'Medium', 'Low', 'Unable to Assess']) {
-  for (const voiceKey of ['shivani', 'nalini']) {
+  for (const voiceKey of ['hinglish', 'hindi']) {
     const analysis = band === 'High' ? HIGH_ANALYSIS : analysisFor(band)
     const out = buildGuidanceScript(analysis, voiceKey)
     const lower = out.script.toLowerCase()
@@ -59,7 +59,7 @@ for (const band of ['High', 'Medium', 'Low', 'Unable to Assess']) {
       typeof out.script === 'string' &&
         out.script.length > 40 &&
         out.script.length <= 300 &&
-        (voiceKey === 'shivani'
+        (voiceKey === 'hinglish'
           ? out.script.includes('OTP, PIN ya CVV kisi ko kabhi mat batayein') &&
             out.script.includes('1930')
           : SAFE_STEPS_HINDI.every((s) => out.script.includes(s))),
@@ -86,17 +86,17 @@ for (const band of ['High', 'Medium', 'Low', 'Unable to Assess']) {
 }
 
 // High script must name the detected categories.
-const highShivani = buildGuidanceScript(HIGH_ANALYSIS, 'shivani')
+const highAvinash = buildGuidanceScript(HIGH_ANALYSIS, 'hinglish')
 check(
-  'script High x shivani: names detected categories',
-  highShivani.script.includes('OTP') && highShivani.script.includes('account block'),
-  highShivani.script,
+  'script High x hinglish: names detected categories',
+  highAvinash.script.includes('OTP') && highAvinash.script.includes('account block'),
+  highAvinash.script,
 )
-const highNalini = buildGuidanceScript(HIGH_ANALYSIS, 'nalini')
+const highHindi = buildGuidanceScript(HIGH_ANALYSIS, 'hindi')
 check(
-  'script High x nalini: Devanagari script',
-  /[\u0900-\u097F]/.test(highNalini.script),
-  highNalini.script.slice(0, 80),
+  'script High x hindi: Devanagari script',
+  /[\u0900-\u097F]/.test(highHindi.script),
+  highHindi.script.slice(0, 80),
 )
 
 // Invalid inputs throw (endpoint answers 400).
@@ -109,7 +109,7 @@ for (const [name, bad] of [
 ]) {
   let threw = false
   try {
-    buildGuidanceScript(bad, name === 'unknown voice' ? 'robot' : 'shivani')
+    buildGuidanceScript(bad, name === 'unknown voice' ? 'robot' : 'hinglish')
   } catch {
     threw = true
   }
