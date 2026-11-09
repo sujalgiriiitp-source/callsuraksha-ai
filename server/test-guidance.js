@@ -6,7 +6,7 @@
  *   1. Guidance scripts — all 4 risk bands x both voices. Each script
  *      must be non-empty, short, mention the band, carry the safe steps,
  *      and contain NO forbidden fraud-verdict phrase.
- *   2. PCM -> WAV — header fields (RIFF/WAVE, 24 kHz, mono, 16-bit),
+ *   2. PCM -> WAV — header fields (RIFF/WAVE, 44.1 kHz, mono, 16-bit),
  *      data size, duration maths, odd-byte trimming.
  * Exit code 0 = all pass, 1 = any failure.
  */
@@ -117,21 +117,21 @@ for (const [name, bad] of [
 }
 
 // --- 2. PCM -> WAV ----------------------------------------------------------
-const pcm = Buffer.alloc(48000) // 1 second of 24 kHz 16-bit mono silence
+const pcm = Buffer.alloc(88200) // 1 second of 44.1 kHz 16-bit mono silence
 for (let i = 0; i < pcm.length; i += 2) pcm.writeInt16LE(i % 1000, i)
 const wav = pcmToWav(pcm)
 check('wav: RIFF/WAVE magic', wav.toString('ascii', 0, 4) === 'RIFF' && wav.toString('ascii', 8, 12) === 'WAVE')
-check('wav: fmt chunk is PCM 16-bit mono 24 kHz',
+check('wav: fmt chunk is PCM 16-bit mono 44.1 kHz',
   wav.readUInt16LE(20) === 1 &&
     wav.readUInt16LE(22) === 1 &&
-    wav.readUInt32LE(24) === 24000 &&
+    wav.readUInt32LE(24) === 44100 &&
     wav.readUInt16LE(34) === 16)
 check('wav: total size = 44 + pcm', wav.length === 44 + pcm.length)
 check('wav: data chunk size matches', wav.readUInt32LE(40) === pcm.length)
-check('wav: duration 48000 bytes = 1.0 s', pcmDurationSeconds(48000) === 1.0)
-check('wav: duration 24000 bytes = 0.5 s', pcmDurationSeconds(24000) === 0.5)
-const odd = pcmToWav(Buffer.alloc(48001))
-check('wav: odd trailing byte trimmed', odd.length === 44 + 48000)
+check('wav: duration 88200 bytes = 1.0 s', pcmDurationSeconds(88200) === 1.0)
+check('wav: duration 44100 bytes = 0.5 s', pcmDurationSeconds(44100) === 0.5)
+const odd = pcmToWav(Buffer.alloc(88201))
+check('wav: odd trailing byte trimmed', odd.length === 44 + 88200)
 
 console.log(`\n${passed}/${passed + failed} passed`)
 process.exit(failed === 0 ? 0 : 1)

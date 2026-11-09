@@ -1,13 +1,15 @@
 /**
  * CallSuraksha AI — raw PCM to WAV wrapper (Phase 7).
  *
- * Gnani Timbre returns RAW s16le PCM (mono, 24,000 Hz) — not a WAV file.
+ * Gnani Timbre returns RAW s16le PCM (mono, 44,100 Hz) — not a WAV file.
  * Browsers cannot play raw PCM directly, so the server wraps it in a
  * standard 44-byte RIFF/WAVE header before sending it to the frontend.
  * Verified format from the 31 Oct 2026 API tests: s16le, mono, 24 kHz.
+ * Since 9 Nov 2026 the guidance call requests sample_rate 44100, so the
+ * Timbre PCM now arrives at 44,100 Hz (playground pace, ~2.6 words/sec).
  */
 
-export const TIMBRE_SAMPLE_RATE = 24000
+export const TIMBRE_SAMPLE_RATE = 44100
 export const TIMBRE_CHANNELS = 1
 export const TIMBRE_BITS_PER_SAMPLE = 16
 

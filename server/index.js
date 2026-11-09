@@ -464,7 +464,7 @@ app.post('/api/transcribe', requireAiEnabled, aiLimiter, upload.single('audio_fi
 
 // Phase 7 — voice guidance. The spoken script is built ONLY from the
 // real risk analysis (band, categories, safe steps) — never invented, and
-// never a fraud claim. Timbre returns raw s16le PCM (mono, 24 kHz); the
+// never a fraud claim. Timbre returns raw s16le PCM (mono, 44.1 kHz); the
 // server wraps it as WAV before sending it to the browser. On a TTS
 // failure the script is still returned, so the frontend can show the text
 // guidance instead of breaking.
@@ -536,7 +536,11 @@ app.post('/api/guidance', requireAiEnabled, aiLimiter, async (req, res) => {
           model: guidance.model,
           voice: guidance.voice,
           language: guidance.language,
-          speed: 1.0,
+          // Playground pace (verified 9 Nov 2026): sample_rate 44100 makes
+          // Timbre speak at ~2.6 words/sec like the playground; speed 1.15
+          // is the API maximum. At 24 kHz / 1.0 the same script took ~30 s.
+          speed: 1.15,
+          sample_rate: 44100,
         }),
         signal: AbortSignal.timeout(GNANI_TIMEOUT_MS),
       })

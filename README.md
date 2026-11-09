@@ -366,7 +366,7 @@ Error codes: `400 NO_FILE` · `400 FILE_TOO_LARGE` · `400 AUDIO_TOO_LONG` ·
 ### `POST /api/guidance`
 
 JSON body — `{ "request_id": "<id from /api/transcribe>", "voice": "hinglish" | "hindi" }`.
-Returns a WAV file (Timbre v2.5 output, raw 24 kHz PCM wrapped server-side).
+Returns a WAV file (Timbre v3.0 output, raw 44.1 kHz PCM wrapped server-side — sample_rate 44100 + speed 1.15, the playground pace).
 The `request_id` must match a real analysis from the last 10 minutes;
 anything else returns `400 INVALID_REQUEST`. Client-sent analysis text is
 never trusted.
