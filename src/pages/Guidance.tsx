@@ -51,9 +51,9 @@ export function Guidance() {
           </span>
           <h2 className="font-display mt-4 font-semibold">2. Do awaazein</h2>
           <p className="mt-2 text-sm leading-relaxed text-[#94A3B8]">
-            <strong className="text-[#F8FAFC]">Poorvi</strong> — Hinglish (hi-en), aur{' '}
-            <strong className="text-[#F8FAFC]">Nalini</strong> — Hindi (hi-IN). Dono Gnani Timbre
-            v2.5 se bolti hain. Voice badalne par guidance usi awaaz me dobara banti hai.
+            <strong className="text-[#F8FAFC]">Shivani</strong> — Hinglish (hi-en) aur Hindi (hi-IN),
+            dono Gnani Timbre v3.0 se. Button badalne par guidance usi language
+            ke script me dobara banti hai.
           </p>
         </GlowCard>
         <GlowCard>

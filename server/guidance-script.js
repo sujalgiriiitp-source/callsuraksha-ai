@@ -6,12 +6,14 @@
  * is invented. It never claims fraud: the wording is always "risk lag rahi
  * hai / signals mile hain", never "ye fraud hai / scam hai".
  *
- * Two voices, both verified working on Timbre v2.5:
- *   poorvi — Hinglish script (hi-en), Roman text
+ * Two voices, both Shivani on Timbre v3.0 (verified working):
+ *   shivani — Hinglish script (hi-en), Roman text
  *   nalini — Hindi script (hi-IN), Devanagari text
+ * (The 'nalini' key is the Hindi-script slot; the voice behind it is
+ * Shivani too — Sujal asked for one girl's voice everywhere, 9 Nov.)
  *
  * The script is deliberately SHORT (opening + the two most important
- * precautions). Timbre v2.5 speaks slowly (~2 words/sec), so the full
+ * precautions). Timbre speaks slowly (~2 words/sec), so the full
  * three safe steps would make a ~40 s clip; the full steps are already
  * shown on the dashboard in the "Recommended safe actions" card.
  *
@@ -20,8 +22,8 @@
  */
 
 export const GUIDANCE_VOICES = {
-  poorvi: { voice: 'Poorvi', model: 'timbre-v2.5', language: 'hi-en', label: 'Hinglish · Poorvi' },
-  nalini: { voice: 'Nalini', model: 'timbre-v2.5', language: 'hi-IN', label: 'Hindi · Nalini' },
+  shivani: { voice: 'Shivani', model: 'timbre-v3.0', language: 'hi-en', label: 'Hinglish · Shivani' },
+  nalini: { voice: 'Shivani', model: 'timbre-v3.0', language: 'hi-IN', label: 'Hindi · Shivani' },
 }
 
 export const VALID_BANDS = ['Low', 'Medium', 'High', 'Unable to Assess']
@@ -92,7 +94,7 @@ function joinLabels(labels, connector = 'aur') {
  * Returns { script, voice, model, language, label }.
  * Throws on an invalid analysis so the endpoint can answer 400.
  */
-export function buildGuidanceScript(analysis, voiceKey = 'poorvi') {
+export function buildGuidanceScript(analysis, voiceKey = 'shivani') {
   const voiceConfig = GUIDANCE_VOICES[voiceKey]
   if (!voiceConfig) throw new Error(`Unknown voice: ${voiceKey}`)
   if (!analysis || typeof analysis !== 'object') throw new Error('Analysis missing')
@@ -118,7 +120,7 @@ export function buildGuidanceScript(analysis, voiceKey = 'poorvi') {
     return { script: `${opening} ${steps}`, ...voiceConfig }
   }
 
-  // Hinglish (Poorvi, hi-en) — default.
+  // Hinglish (Shivani, hi-en) — default.
   const labels = topCategories(analysis, CATEGORY_LABELS_HINGLISH)
   const steps = SPOKEN_STEPS_HINGLISH
   let opening

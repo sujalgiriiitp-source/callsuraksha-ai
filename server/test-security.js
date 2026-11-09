@@ -306,7 +306,7 @@ try {
         noId.status === 400 && noId.data?.error === 'INVALID_REQUEST',
         `got ${noId.status} ${noId.data?.error ?? ''}`,
       )
-      const forged = await postGuidance(base, { request_id: 'forged-id-12345', voice: 'poorvi' })
+      const forged = await postGuidance(base, { request_id: 'forged-id-12345', voice: 'shivani' })
       check(
         'guidance forged request_id -> 400 INVALID_REQUEST',
         forged.status === 400 && forged.data?.error === 'INVALID_REQUEST',
@@ -314,7 +314,7 @@ try {
       )
       const oldFormat = await postGuidance(base, {
         analysis: { riskBand: 'High', highlights: [{ category: 'OTP_DEMAND' }], safeSteps: ['x'] },
-        voice: 'poorvi',
+        voice: 'shivani',
       })
       check(
         'guidance purana format (client analysis) -> 400, analysis ignore hoti hai',
@@ -324,9 +324,9 @@ try {
 
       // Real TTS via the receipt (1 real Timbre call), then voice switch
       // on the SAME receipt (2nd real Timbre call) — receipt multi-use hai.
-      const g1 = await postGuidance(base, { request_id: requestId, voice: 'poorvi' })
+      const g1 = await postGuidance(base, { request_id: requestId, voice: 'shivani' })
       check(
-        'guidance valid request_id (Poorvi) -> 200 real WAV audio',
+        'guidance valid request_id (Shivani) -> 200 real WAV audio',
         g1.status === 200 && typeof g1.data?.audioBase64 === 'string' && g1.data.audioBase64.length > 0,
         `got ${g1.status}`,
       )

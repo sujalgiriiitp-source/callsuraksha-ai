@@ -28,8 +28,8 @@ export const TIMBRE_MODEL_V3 = 'timbre-v3.0'
 export const TIMBRE_MODEL_V2 = 'timbre-v2.5'
 // v2.5 voices: Poorvi (Hinglish, hi-en), Nalini (Hindi, hi-IN),
 // Kaveri, Deepak. v3.0 voices: Shivani, Avinash, Lakshmi — each speaks
-// all 10 languages. Poorvi is v2.5-only; on v3.0 test a v3.0 voice
-// (e.g. Shivani) with language 'hi-en'.
+// all 10 languages. Hinglish AND Hindi guidance now both use Shivani
+// (v3.0, hi-en + hi-IN) — Sujal asked for one girl's voice everywhere.
 export const TIMBRE_VOICE_HINGLISH_V2 = 'Poorvi'
 export const TIMBRE_VOICE_HINDI_V2 = 'Nalini'
 export const TIMBRE_VOICE_HINGLISH_V3 = 'Shivani'

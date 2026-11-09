@@ -52,8 +52,8 @@ const ARCHITECTURE = [
   {
     icon: Volume2,
     color: '#11CFA8',
-    title: 'Gnani Timbre v2.5 — Voice Guidance',
-    text: 'Risk analysis se bana Hindi safety script Poorvi (Hinglish) ya Nalini (Hindi) ki awaaz me bolta hai. Raw PCM ko server WAV me convert karta hai.',
+    title: 'Gnani Timbre — Voice Guidance',
+    text: 'Risk analysis se bana Hindi safety script Shivani ki awaaz me bolta hai — Hinglish ya Hindi, dono Gnani Timbre v3.0 se. Raw PCM ko server WAV me convert karta hai.',
   },
 ]
 

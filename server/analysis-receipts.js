@@ -10,7 +10,7 @@
  *
  * Receipts are multi-use inside their TTL (10 minutes): the same
  * analysis legitimately needs two guidance calls — one per voice
- * (Poorvi, then Nalini on voice switch). Abuse inside that window is
+ * (Shivani Hinglish, then Shivani Hindi on voice switch). Abuse inside that window is
  * still bounded by the combined per-IP rate limit. At most 100
  * receipts are kept; the oldest is evicted when the cap is hit.
  * Nothing is written to disk — a restart clears the receipts, which

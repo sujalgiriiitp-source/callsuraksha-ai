@@ -50,7 +50,7 @@ const HIGH_ANALYSIS = analysisFor('High', [
 
 // --- 1. Guidance scripts ---------------------------------------------------
 for (const band of ['High', 'Medium', 'Low', 'Unable to Assess']) {
-  for (const voiceKey of ['poorvi', 'nalini']) {
+  for (const voiceKey of ['shivani', 'nalini']) {
     const analysis = band === 'High' ? HIGH_ANALYSIS : analysisFor(band)
     const out = buildGuidanceScript(analysis, voiceKey)
     const lower = out.script.toLowerCase()
@@ -59,7 +59,7 @@ for (const band of ['High', 'Medium', 'Low', 'Unable to Assess']) {
       typeof out.script === 'string' &&
         out.script.length > 40 &&
         out.script.length <= 300 &&
-        (voiceKey === 'poorvi'
+        (voiceKey === 'shivani'
           ? out.script.includes('OTP, PIN ya CVV kisi ko kabhi mat batayein') &&
             out.script.includes('1930')
           : SAFE_STEPS_HINDI.every((s) => out.script.includes(s))),
@@ -78,7 +78,7 @@ for (const band of ['High', 'Medium', 'Low', 'Unable to Assess']) {
     )
     check(
       `script ${band} x ${voiceKey}: locked model/voice/language`,
-      out.model === 'timbre-v2.5' &&
+      out.model === GUIDANCE_VOICES[voiceKey].model &&
         out.voice === GUIDANCE_VOICES[voiceKey].voice &&
         out.language === GUIDANCE_VOICES[voiceKey].language,
     )
@@ -86,11 +86,11 @@ for (const band of ['High', 'Medium', 'Low', 'Unable to Assess']) {
 }
 
 // High script must name the detected categories.
-const highPoorvi = buildGuidanceScript(HIGH_ANALYSIS, 'poorvi')
+const highShivani = buildGuidanceScript(HIGH_ANALYSIS, 'shivani')
 check(
-  'script High x poorvi: names detected categories',
-  highPoorvi.script.includes('OTP') && highPoorvi.script.includes('account block'),
-  highPoorvi.script,
+  'script High x shivani: names detected categories',
+  highShivani.script.includes('OTP') && highShivani.script.includes('account block'),
+  highShivani.script,
 )
 const highNalini = buildGuidanceScript(HIGH_ANALYSIS, 'nalini')
 check(
@@ -109,7 +109,7 @@ for (const [name, bad] of [
 ]) {
   let threw = false
   try {
-    buildGuidanceScript(bad, name === 'unknown voice' ? 'robot' : 'poorvi')
+    buildGuidanceScript(bad, name === 'unknown voice' ? 'robot' : 'shivani')
   } catch {
     threw = true
   }
